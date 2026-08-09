@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCM Job Notifier — Technical Design</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1f2328;
+    --muted: #656d76;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-soft: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --entry: #1a7f37;
+    --intern: #8250df;
+    --other: #656d76;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 48px 24px 96px; }
+  header.doc {
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 20px;
+    margin-bottom: 32px;
+  }
+  header.doc h1 { font-size: 2rem; margin: 0 0 6px; }
+  header.doc .sub { color: var(--muted); font-size: 1.05rem; }
+  header.doc .meta { color: var(--muted); font-size: 0.85rem; margin-top: 12px; }
+  header.doc .meta span { margin-right: 18px; }
+  h2 {
+    font-size: 1.4rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+    margin-top: 48px;
+  }
+  h3 { font-size: 1.12rem; margin-top: 32px; }
+  h4 { font-size: 1rem; margin-top: 22px; margin-bottom: 6px; }
+  code {
+    background: var(--code-bg);
+    padding: 0.15em 0.4em;
+    border-radius: 5px;
+    font-size: 0.87em;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+  pre.mermaid {
+    background: #fcfcfd;
+    border: 1px solid var(--border);
+    text-align: center;
+    padding: 20px 12px;
+    line-height: 1.3;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    font-size: 0.9rem;
+  }
+  th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--code-bg); font-weight: 600; }
+  tr:nth-child(even) td { background: #fafbfc; }
+  .toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+  }
+  .toc ol { margin: 8px 0 0; padding-left: 22px; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .pill {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    color: #fff;
+    letter-spacing: 0.02em;
+  }
+  .pill.entry { background: var(--entry); }
+  .pill.intern { background: var(--intern); }
+  .pill.unsure { background: #bf8700; }
+  .pill.other { background: var(--other); }
+  .note {
+    background: var(--accent-soft);
+    border: 1px solid #b6e3ff;
+    border-left: 4px solid var(--accent);
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 18px 0;
+    font-size: 0.92rem;
+  }
+  .decision {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-border);
+    border-left: 4px solid var(--warn-border);
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 14px 0;
+    font-size: 0.92rem;
+  }
+  .decision .q { font-weight: 600; }
+  .diff-swe { color: var(--muted); }
+  .diff-scm { color: var(--entry); font-weight: 600; }
+  .flow {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.8rem;
+    line-height: 1.7;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .legend span { margin-right: 16px; font-size: 0.85rem; }
+  footer.doc { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>SCM Job Notifier — Technical Design</h1>
+  <div class="sub">Automated monitor for <strong>entry-level &amp; internship Supply Chain Management</strong> roles in <strong>California</strong></div>
+  <div class="meta">
+    <span><strong>Status:</strong> Draft</span>
+    <span><strong>Author:</strong> jy732@cornell.edu</span>
+    <span><strong>Date:</strong> 2026-08-09</span>
+    <span><strong>Mirrors:</strong> swe-job-notifier</span>
+  </div>
+</header>
+
+<div class="note">
+  This service is a <strong>structural clone</strong> of <code>swe-job-notifier</code>: identical Spring Boot 4 / Java 17 /
+  H2 / Playwright / Gemini stack, identical package layout, identical scheduling and observability. Only <strong>three
+  axes</strong> change, and they are the subject of this document:
+  <ol style="margin:8px 0 0;">
+    <li><strong>Classification target</strong> — <span class="diff-swe">SWE level (L3 / L4)</span> → <span class="diff-scm">SCM track (ENTRY_LEVEL / INTERNSHIP / UNSURE)</span></li>
+    <li><strong>Location filter</strong> — <span class="diff-swe">United States</span> → <span class="diff-scm">California only</span></li>
+    <li><strong>Relevance filter</strong> — <span class="diff-swe">software-engineering titles</span> → <span class="diff-scm">supply-chain titles</span></li>
+  </ol>
+  One structural change also falls out of the target axis: SWE's <span class="diff-swe">two per-track alert emails</span> become
+  <span class="diff-scm">a single alert email to one recipient list, with a Type column</span> (Decision D1). Everything else —
+  the two-phase scrape, in-memory dedup, three-stage classifier, retry/fallback, batch persistence, 5-minute scan cadence,
+  daily summary, 90-day cleanup, Actuator metrics — is carried over unchanged.
+</div>
+
+<div class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#goals">Goals &amp; Non-Goals</a></li>
+    <li><a href="#arch">Architecture Overview</a></li>
+    <li><a href="#pipeline">End-to-End Pipeline</a></li>
+    <li><a href="#model">Data Model</a></li>
+    <li><a href="#prefilter">Pre-Filters (the three changed axes)</a></li>
+    <li><a href="#classify">Classification Pipeline (3 stages)</a></li>
+    <li><a href="#notify">Notification &amp; Routing</a></li>
+    <li><a href="#platforms">Scrapers &amp; Target Employers</a></li>
+    <li><a href="#schedule">Scheduled Jobs &amp; Config</a></li>
+    <li><a href="#obs">Observability</a></li>
+    <li><a href="#structure">Project Structure</a></li>
+    <li><a href="#decisions">Resolved Design Decisions</a></li>
+    <li><a href="#appendix">Appendix A — SCM Title Taxonomy (research)</a></li>
+  </ol>
+</div>
+
+<h2 id="goals">1. Goals &amp; Non-Goals</h2>
+<h4>Goals</h4>
+<ul>
+  <li>Detect newly-posted <strong>entry-level</strong> and <strong>internship</strong> SCM roles located in <strong>California</strong> within ~15 minutes of publication.</li>
+  <li>Route each detected role to the correct recipient list by track (entry vs. intern).</li>
+  <li>Reuse the proven swe-job-notifier architecture verbatim to minimize new code and operational surprises.</li>
+  <li>Run cleanly alongside <code>swe-job-notifier</code> on the same machine (separate port 8081, separate H2 file).</li>
+</ul>
+<h4>Non-Goals</h4>
+<ul>
+  <li>Mid-level / senior / management SCM roles (classified as <span class="pill other">OTHER</span>, stored, not notified).</li>
+  <li>Roles outside California (filtered out before classification).</li>
+  <li>Non-SCM roles (SWE, sales, finance, etc. — filtered out before classification).</li>
+  <li>A UI. Debug endpoints only, same as the SWE app.</li>
+</ul>
+
+<h2 id="arch">2. Architecture Overview</h2>
+<p>
+  A single Spring Boot process runs four scheduled jobs against a file-based H2 database. Scrapers pull postings from
+  ATS JSON APIs (fast) and Playwright-driven SPA career pages (slower, browser-based). A three-stage classifier assigns
+  each unseen posting a <em>track</em>. An independent scanner emails unnotified postings to the matching recipient list.
+</p>
+<table>
+  <tr><th>Concern</th><th>Choice</th><th>Same as SWE?</th></tr>
+  <tr><td>Framework</td><td>Spring Boot 4.0.5, Java 17</td><td>Yes</td></tr>
+  <tr><td>HTTP scraping</td><td>WebClient (WebFlux) for JSON/GraphQL APIs</td><td>Yes</td></tr>
+  <tr><td>Browser scraping</td><td>Playwright 1.52.0 (shared headless Chromium)</td><td>Yes</td></tr>
+  <tr><td>Persistence</td><td>H2 file DB (<code>./data/jobs</code>), Spring Data JPA</td><td>Yes (separate file)</td></tr>
+  <tr><td>Classifier</td><td>Gemini 2.5 Flash, 3-stage funnel</td><td>Yes (new label set)</td></tr>
+  <tr><td>Email</td><td>Spring Mail / Gmail SMTP</td><td>Yes</td></tr>
+  <tr><td>Metrics</td><td>Micrometer + Actuator</td><td>Yes</td></tr>
+  <tr><td>Port</td><td><strong>8081</strong></td><td>No (SWE owns 8080)</td></tr>
+</table>
+
+<h2 id="pipeline">3. End-to-End Pipeline</h2>
+<p>Per poll cycle (every 15 min), each company runs the same funnel used by the SWE app. The <span style="background:var(--accent-soft);border:1px solid #b6e3ff;padding:1px 5px;border-radius:4px;">highlighted</span> stages are where SCM diverges.</p>
+<pre class="mermaid">
+flowchart TD
+    START(["Every 15 min"]) --> SCRAPE["Scrape career pages (8-thread pool)<br/>API scrapers include JD; Playwright defers JD"]
+    SCRAPE --> FRESH["Filter: freshness<br/>drop postings older than 30 days"]
+    FRESH --> EXCLUDE["Filter: exclude seniority<br/>senior / staff / lead / manager / director / VP<br/>NOTE: 'intern' is NOT excluded"]
+    EXCLUDE --> CA["Filter: California only<br/>CA-tokened locations; remote needs CA token"]
+    CA --> SCM["Filter: SCM-relevant titles<br/>supply chain / logistics / procurement / ..."]
+    SCM --> DEDUP{"Already in DB?<br/>in-memory key set"}
+    DEDUP -- Yes --> SKIP([Skip])
+    DEDUP -- No --> FETCH["Fetch descriptions<br/>Playwright scrapers only, unseen jobs"]
+    FETCH --> S1{"Stage 1<br/>title rules"}
+    S1 -- "INTERNSHIP / ENTRY_LEVEL" --> TRACK["Track assigned"]
+    S1 -- Ambiguous --> S2{"Stage 2<br/>description signals<br/>enrollment; YOE 0-3"}
+    S2 -- "INTERNSHIP / ENTRY_LEVEL / OTHER" --> TRACK
+    S2 -- Ambiguous --> S3["Stage 3: Gemini 2.5 Flash<br/>4-way classify, batches of 50"]
+    S3 -- "ENTRY_LEVEL / INTERNSHIP / UNSURE" --> TRACK
+    S3 -- OTHER --> OTHER["Track = OTHER"]
+    S3 -- "API failed" --> FAILED["failures++"]
+    TRACK --> DB[("H2 Database")]
+    OTHER --> DB
+    FAILED --> DB
+    DB --> RETRY{"Failed &ge; 3 times?"}
+    RETRY -- Yes --> FB["Fallback: label UNSURE"] --> DB
+    RETRY -- No --> REGEM["Re-classify next poll"] --> DB
+
+    SCAN(["Every 5 min"]) --> QUERY["Query: level in ENTRY_LEVEL,<br/>INTERNSHIP, UNSURE AND notified = false"]
+    QUERY -- Found --> EMAIL["Send ONE email to single list<br/>rows carry a Type column"]
+    QUERY -- "OTHER" --> NEVER([Never emailed])
+    EMAIL -- Success --> MARK["Mark notified = true"] --> DONE([Done])
+    EMAIL -- Failure --> RETRYEMAIL(["Retry in 5 min"])
+
+    DAILY1(["Daily 8 AM"]) --> SUMMARY["Summary email of recent activity"]
+    DAILY2(["Daily 3 AM"]) --> CLEANUP["Delete jobs older than 90 days"]
+
+    classDef changed fill:#ddf4ff,stroke:#0969da,stroke-width:2px,color:#0a3069;
+    class EXCLUDE,CA,SCM,S1,S2,S3,QUERY,EMAIL changed;
+</pre>
+
+<h2 id="model">4. Data Model</h2>
+<p>
+  The <code>JobPosting</code> entity is carried over unchanged. Only the semantics of the <code>level</code> column change
+  (renamed conceptually to <em>track</em>, but the column and type stay <code>String</code> to keep the schema and JPA
+  code identical to SWE). Unique constraint remains <code>(company, externalId)</code>.
+</p>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+  <tr><td><code>id</code></td><td>Long (identity)</td><td>PK</td></tr>
+  <tr><td><code>company</code></td><td>String</td><td>part of unique key</td></tr>
+  <tr><td><code>externalId</code></td><td>String</td><td>part of unique key</td></tr>
+  <tr><td><code>title</code></td><td>String</td><td>drives Stage 1</td></tr>
+  <tr><td><code>url</code></td><td>String(2048)</td><td>link in email</td></tr>
+  <tr><td><code>location</code></td><td>String</td><td>drives California filter</td></tr>
+  <tr><td><code>description</code></td><td>CLOB</td><td>drives Stage 2 &amp; Stage 3</td></tr>
+  <tr><td><code>postedDate</code></td><td>Instant</td><td>drives freshness filter</td></tr>
+  <tr><td><code>detectedAt</code></td><td>Instant</td><td>when we first saw it</td></tr>
+  <tr><td><code>notified</code></td><td>boolean</td><td>alert-scan flag</td></tr>
+  <tr><td><code>classificationFailures</code></td><td>int</td><td>Gemini retry counter (max 3)</td></tr>
+  <tr><td><code>level</code> <span class="diff-scm">(track)</span></td><td>String</td><td><span class="pill entry">ENTRY_LEVEL</span> <span class="pill intern">INTERNSHIP</span> <span class="pill unsure">UNSURE</span> <span class="pill other">OTHER</span> / null — first three are emailed, OTHER is not</td></tr>
+</table>
+
+<h2 id="prefilter">5. Pre-Filters — the three changed axes</h2>
+<p>Implemented in <code>JobTitleFilter</code>, run in this order. Any posting that fails a gate is silently dropped.</p>
+
+<h3>5.1 Freshness — <span class="diff-swe">unchanged</span></h3>
+<p>Reject postings older than 30 days by <code>postedDate</code>; postings with no date pass through.</p>
+
+<h3>5.2 Exclude keywords — <span class="diff-scm">changed</span></h3>
+<p>Drop titles that indicate seniority above entry level. <strong>Critical difference from SWE:</strong> the SWE app excludes <code>intern</code>; here internships are a target, so <code>intern</code> is removed from the exclude list.</p>
+<table>
+  <tr><th></th><th>SWE excludes</th><th>SCM excludes</th></tr>
+  <tr><td>Seniority</td><td>senior, sr., staff, principal, lead, manager, director, VP, PhD</td><td>senior, sr., staff, principal, lead, manager, director, VP, head of, chief, supervisor</td></tr>
+  <tr><td>Interns</td><td class="diff-swe">intern (excluded)</td><td class="diff-scm">intern — <strong>allowed</strong></td></tr>
+  <tr><td>Domain</td><td>frontend, mobile, iOS, Android, embedded, security</td><td>(n/a — SCM relevance handled by 5.4)</td></tr>
+</table>
+
+<h3>5.3 Location — <span class="diff-scm">changed: US → California</span></h3>
+<p>Replaces <code>isValidUsLocation</code> with <code>isCaliforniaLocation</code>. Keep a posting if its <code>location</code> matches any of:</p>
+<ul>
+  <li>Explicit state token: <code>CA</code>, <code>California</code></li>
+  <li>Known CA cities/metros: San Francisco, San Jose, Oakland, Fremont, Sunnyvale, Santa Clara, Mountain View, Palo Alto, Cupertino, Milpitas, Pleasanton, San Mateo, Redwood City, Los Angeles, Long Beach, Irvine, Anaheim, Santa Ana, El Segundo, Torrance, City of Industry, Ontario, San Diego, Carlsbad, Sacramento, Fresno, Riverside, San Bernardino, Santa Barbara, Bakersfield, …</li>
+  <li>Remote handling — see <a href="#decisions">Open Decision D2</a></li>
+</ul>
+<p>Reject known non-CA US states and all non-US patterns (the SWE non-US reject list is reused as-is, extended to reject other US states).</p>
+<div class="note">City-name matching needs care: "Ontario" is both a CA city and a Canadian province; "San Jose" also exists in Costa Rica. The filter should require a CA context token (<code>, CA</code> / <code>California</code>) when a city name is ambiguous, mirroring how the SWE filter disambiguates.</div>
+
+<h3>5.4 SCM relevance — <span class="diff-scm">changed: SWE → SCM</span></h3>
+<p>Replaces <code>isSweRelevant</code> with <code>isScmRelevant</code>. Require the title to match at least one supply-chain keyword:</p>
+<pre><code>supply chain, logistics, procurement, sourcing, purchasing, buyer,
+operations (ops), planning, demand planning, supply planning, S&amp;OP,
+inventory, materials, warehouse, fulfillment, distribution,
+transportation, category management, commodity, vendor management,
+replenishment, production planning, MRP, ERP, import/export, customs,
+supplier quality, order management, 3PL, freight</code></pre>
+<p>This gate is what removes SWE, sales, marketing, finance, and HR roles that survived the other filters.</p>
+
+<h2 id="classify">6. Classification Pipeline (3 stages)</h2>
+<p>
+  Structure is identical to SWE's <code>ClassificationPipeline</code>: three stages, each consuming only what the previous
+  couldn't classify. Only the <strong>label set</strong> and the <strong>rules that emit those labels</strong> change.
+</p>
+<p class="legend">
+  <span class="pill entry">ENTRY_LEVEL</span> full-time entry role &nbsp;
+  <span class="pill intern">INTERNSHIP</span> intern / co-op &nbsp;
+  <span class="pill unsure">UNSURE</span> can't confidently separate entry vs intern &nbsp;
+  <span class="pill other">OTHER</span> stored, not notified
+</p>
+<p>
+  <strong>All three of ENTRY_LEVEL, INTERNSHIP, and UNSURE are emailed</strong> — they land in a single alert email as
+  rows in one table, with a <em>Type</em> column carrying the label (see §7). Only <span class="pill other">OTHER</span>
+  is stored-but-silent. This is the key departure from SWE, whose L3/L4 split into two separate recipient lists.
+</p>
+
+<table>
+  <tr><th>SWE label</th><th>→ SCM label</th><th>Emailed?</th></tr>
+  <tr><td>L4 (mid, primary)</td><td><span class="pill entry">ENTRY_LEVEL</span></td><td>yes — Type = ENTRY_LEVEL</td></tr>
+  <tr><td>L3 (new-grad, secondary)</td><td><span class="pill intern">INTERNSHIP</span></td><td>yes — Type = INTERNSHIP</td></tr>
+  <tr><td>L3_OR_L4</td><td><span class="pill unsure">UNSURE</span></td><td>yes — Type = UNSURE</td></tr>
+  <tr><td>OTHER</td><td><span class="pill other">OTHER</span></td><td>no</td></tr>
+</table>
+
+<h3>Stage 1 — Title rules (<code>JobTitleFilter.autoClassifyLevel</code>) — zero cost</h3>
+<p>
+  Patterns below are derived from real 2026 SCM postings (see <a href="#appendix">Appendix A</a> for the source taxonomy).
+  The defining difference from SWE: an <code>Engineer II</code> title <em>is</em> its own level, but a bare
+  <code>Supply Chain Analyst</code> is <strong>not</strong> — the same title is used for 0-YOE and 10-YOE roles. So Stage 1
+  only fires on <strong>explicit</strong> level markers and a short list of role nouns that are <em>only</em> ever entry-level;
+  everything else is deliberately left ambiguous for Stages 2–3.
+</p>
+
+<div class="note">
+  <strong>Interaction with the exclude pre-filter (§5.2):</strong> by the time a title reaches Stage 1, explicitly-senior
+  titles ("Senior…", "…Manager", "Lead…") are already gone. Stage 1 therefore only has to separate
+  <em>intern vs. entry vs. still-ambiguous</em>, not fight off senior roles.
+</div>
+
+<h4>A · INTERNSHIP — high confidence (checked first)</h4>
+<table>
+  <tr><th>Regex (case-insensitive, on title)</th><th>Matches</th></tr>
+  <tr><td><code>\b(intern|internship)\b</code></td><td>"Supply Chain Intern", "Procurement Internship" — <code>\b</code> avoids "internal"/"international"</td></tr>
+  <tr><td><code>\bco[-\s]?op\b</code></td><td>"Logistics Co-op", "Supply Chain Coop"</td></tr>
+  <tr><td><code>\bsummer\s+(analyst|associate|scholar)\b</code></td><td>"Summer Analyst" (bank/CPG intern convention)</td></tr>
+  <tr><td><code>\b(DCM|MBA)\s+intern</code> / <code>intern\b.*\b20\d{2}\b</code></td><td>"DCM Internship", "Supply Chain Intern – Summer 2026"</td></tr>
+</table>
+
+<h4>B · ENTRY_LEVEL — explicit level markers, high confidence</h4>
+<table>
+  <tr><th>Regex</th><th>Matches</th></tr>
+  <tr><td><code>\b(new|recent|university|college)\s+grad(uate)?\b</code></td><td>"New Grad", "University Graduate", "Recent Graduate"</td></tr>
+  <tr><td><code>\bentry[-\s]?level\b</code></td><td>"Entry-Level Buyer"</td></tr>
+  <tr><td><code>\b(jr\.?|junior)\b</code></td><td>"Junior Planner", "Jr. Buyer"</td></tr>
+  <tr><td><code>\b(analyst|coordinator|specialist|planner|buyer|associate)\s*(I|1)\b</code></td><td>"Supply Chain Analyst I", "Buyer 1" (but <strong>not</strong> "II"/"2")</td></tr>
+  <tr><td><code>\b(rotational|leadership\s+development|management\s+trainee|(early\s+career\s+)?development)\s+program\b</code></td><td>"Supply Chain Rotational Development Program", "Leadership Development Program", "Management Trainee Program"</td></tr>
+  <tr><td><code>\b(campus|early\s+career|trainee)\b</code></td><td>"Campus Hire", "Early Career Sourcing", "Procurement Trainee"</td></tr>
+</table>
+
+<h4>C · ENTRY_LEVEL — entry-only role nouns, medium confidence</h4>
+<p>These role nouns are, in practice, never used for senior SCM roles (a senior person is a "Manager"/"Lead", already excluded). Treated as ENTRY_LEVEL when no seniority marker survived §5.2:</p>
+<pre><code>\b(coordinator|assistant|administrator)\b   →  ENTRY_LEVEL
+   e.g. Logistics Coordinator, Purchasing Assistant, Warehouse Administrator,
+        Procurement Coordinator, Buyer's Assistant, Sourcing Assistant</code></pre>
+
+<h4>D · Ambiguous role nouns — do <em>not</em> auto-classify (→ <code>null</code> → Stage 2)</h4>
+<p>These titles span the full seniority range with no marker, so Stage 1 must pass them down for YOE / Gemini judgment. This is the main behavioral change from SWE's title stage:</p>
+<pre><code>Supply Chain Analyst · Logistics Analyst · Operations Analyst
+Procurement / Sourcing Specialist · Buyer · Demand / Supply Planner
+Inventory Analyst · Category Analyst
+   → no level word → return null → Stage 2 (description YOE) → Stage 3 (Gemini)</code></pre>
+
+<h4>Precedence</h4>
+<ol>
+  <li><strong>A (INTERNSHIP)</strong> wins over everything — an explicit "intern" token beats any entry marker (e.g. "Supply Chain Intern — New Grad Program" → INTERNSHIP).</li>
+  <li>then <strong>B</strong> (explicit entry marker) → ENTRY_LEVEL;</li>
+  <li>then <strong>C</strong> (entry-only role noun) → ENTRY_LEVEL;</li>
+  <li>else <strong>D</strong> → <code>null</code> (defer).</li>
+</ol>
+
+<h3>Stage 2 — Description signals (<code>SignalExtractor.inferLevelFromDescription</code>) — local, no API</h3>
+<ul>
+  <li><strong>Internship signals →</strong> <span class="pill intern">INTERNSHIP</span>: "currently enrolled", "pursuing a [Bachelor/Master] degree", "rising junior/senior", "expected graduation", "current student", "must be enrolled". Checked first — enrollment beats YOE.</li>
+  <li><strong>YOE parsing</strong> (reuse <code>YOE_PATTERN</code>, per <strong>Decision D4: entry = 0–3 YOE</strong>): <code>&gt; 3 years</code> → <span class="pill other">OTHER</span> (too senior); <code>0–3 years</code> with no internship signal → <span class="pill entry">ENTRY_LEVEL</span>.</li>
+  <li>Entry keywords in the JD are extracted as <code>Signal</code> records for the Gemini prompt but — as in SWE — not used to auto-classify, to avoid false positives ("graduate" = degree requirement, "university" = campus location).</li>
+  <li>Returns <code>null</code> → Stage 3.</li>
+</ul>
+
+<h3>Stage 3 — Gemini 2.5 Flash (<code>JobClassifier</code> + <code>GeminiClient</code>) — batched</h3>
+<ul>
+  <li>Remaining ambiguous jobs batched (50/call) and sent to Gemini for a 4-way classification: <code>ENTRY_LEVEL / INTERNSHIP / UNSURE / OTHER</code>. Gemini returns <code>UNSURE</code> when a role is clearly early-career but the description won't commit to intern vs. full-time.</li>
+  <li>Prompt includes title, company, and the structured <code>Signal</code> snippets from Stage 2. Prompt text is rewritten for the SCM entry-vs-intern question (the only prompt-level change from SWE).</li>
+  <li>Output written to <code>level</code>.</li>
+</ul>
+
+<h3>Retry &amp; fallback — <span class="diff-swe">unchanged mechanism</span></h3>
+<p>Gemini failures increment <code>classificationFailures</code>; retried on later polls; after 3 failures the job is auto-approved rather than silently dropped.</p>
+<div class="note"><strong>Decision D3 (resolved):</strong> the fallback label is <span class="pill unsure">UNSURE</span>. A posting that exhausts its 3 Gemini attempts still gets emailed (UNSURE rows are notified), just flagged as unclassified — so nothing is silently dropped and no guess is forced onto the entry/intern split.</div>
+
+<h2 id="notify">7. Notification &amp; Routing</h2>
+<p>
+  Independent 5-minute scanner (<code>NotificationService</code>), same cadence as SWE, but <strong>one email to one
+  recipient list</strong> instead of two per-track emails (<strong>Decision D1</strong>). Each scan collects every
+  unnotified posting whose <code>level</code> is ENTRY_LEVEL, INTERNSHIP, or UNSURE, renders them as rows in a single
+  table with a <em>Type</em> column, sends one message, then marks them notified.
+</p>
+<pre><code>candidates = level IN (ENTRY_LEVEL, INTERNSHIP, UNSURE) AND notified = false
+if candidates not empty:
+    render ONE table, one row per job, Type column = the level label
+    send ONE email  →  job.notification.to        (single recipient list)
+    on success → notified = true   |   on failure → retry next scan
+OTHER  →  never emailed</code></pre>
+<h4>Email layout</h4>
+<table>
+  <tr><th>Type</th><th>Title</th><th>Company</th><th>Location</th><th>Link</th></tr>
+  <tr><td><span class="pill entry">ENTRY_LEVEL</span></td><td>Supply Chain Analyst</td><td>Edwards Lifesciences</td><td>Irvine, CA</td><td>apply →</td></tr>
+  <tr><td><span class="pill intern">INTERNSHIP</span></td><td>Procurement Intern – Summer 2026</td><td>Tesla</td><td>Fremont, CA</td><td>apply →</td></tr>
+  <tr><td><span class="pill unsure">UNSURE</span></td><td>Logistics Associate</td><td>Flexport</td><td>San Francisco, CA</td><td>apply →</td></tr>
+</table>
+<div class="note">
+  <strong>Config impact:</strong> the skeleton's two vars <code>NOTIFICATION_EMAIL_ENTRY</code> /
+  <code>NOTIFICATION_EMAIL_INTERN</code> (and properties <code>job.notification.to.entry</code> /
+  <code>.intern</code>) collapse to a single <code>NOTIFICATION_EMAIL</code> → <code>job.notification.to</code>.
+  This needs a one-line edit in <code>application.properties</code> and <code>.env.example</code> when implementation starts.
+</div>
+
+<h2 id="platforms">8. Scrapers &amp; Target Employers</h2>
+<p>
+  The scraper layer is copied wholesale — same <code>JobScraper</code> interface, same two-phase
+  <code>scrape()</code> / <code>fetchDescriptions()</code> split, same per-platform implementations (Greenhouse, Lever,
+  Ashby, SmartRecruiters, Workday, OracleCloud, iCIMS, plus the bespoke Amazon/Google/Apple/Microsoft/Meta/Tesla/TikTok/
+  Netflix scrapers). <strong>No scraper code changes</strong> — only the configured company lists change.
+</p>
+<p>
+  Target employers shift from tech-heavy to <strong>SCM-heavy, California-relevant</strong> firms. The list below is
+  <strong>finalized and live in <code>application.properties</code></strong> (Aug 2026): each employer was verified to (a) hire
+  entry-level / internship SCM roles in CA and (b) run on one of our supported ATS platforms, with the exact ATS identifier
+  captured. <strong>38 direct-config employers</strong> (28 Workday + 9 Greenhouse + 1 SmartRecruiters) plus the 8 bespoke
+  single-company scrapers ported from SWE.
+</p>
+
+<h4>Workday (28) — <code>subdomain</code> / <code>wd{instance}</code> / <code>site</code></h4>
+<table>
+  <tr><th>Segment</th><th>Employer</th><th>Location</th><th>Workday path</th></tr>
+  <tr><td rowspan="9">Semiconductors / hardware</td><td>NVIDIA</td><td>Santa Clara</td><td>nvidia / wd5 / NVIDIAExternalCareerSite</td></tr>
+  <tr><td>Intel</td><td>Santa Clara</td><td>intel / wd1 / External</td></tr>
+  <tr><td>Cisco</td><td>San Jose</td><td>cisco / wd5 / Cisco_Careers</td></tr>
+  <tr><td>Broadcom</td><td>Palo Alto</td><td>broadcom / wd1 / External_Career</td></tr>
+  <tr><td>Applied Materials</td><td>Santa Clara</td><td>amat / wd1 / External</td></tr>
+  <tr><td>Qualcomm</td><td>San Diego</td><td>qualcomm / wd5 / External</td></tr>
+  <tr><td>Marvell</td><td>Santa Clara</td><td>marvell / wd1 / MarvellCareers</td></tr>
+  <tr><td>KLA</td><td>Milpitas</td><td>kla / wd1 / Search</td></tr>
+  <tr><td>Seagate ⚠</td><td>Fremont</td><td>seagate / wd5 / Seagate</td></tr>
+  <tr><td rowspan="9">Med-device / pharma / biotech</td><td>Edwards Lifesciences ★</td><td>Irvine</td><td>edwards / wd5 / edwardscareers</td></tr>
+  <tr><td>Gilead Sciences</td><td>Foster City</td><td>gilead / wd1 / gileadcareers</td></tr>
+  <tr><td>Amgen</td><td>Thousand Oaks</td><td>amgen / wd1 / Careers</td></tr>
+  <tr><td>Illumina</td><td>San Diego</td><td>illumina / wd1 / illumina-careers</td></tr>
+  <tr><td>Dexcom</td><td>San Diego</td><td>dexcom / wd1 / Dexcom</td></tr>
+  <tr><td>ResMed</td><td>San Diego</td><td>resmed / wd3 / ResMed_External_Careers</td></tr>
+  <tr><td>Stryker</td><td>Fremont (ops)</td><td>stryker / wd1 / StrykerCareers</td></tr>
+  <tr><td>Genentech</td><td>South SF</td><td>roche / wd3 / ROG-A2O-GENE</td></tr>
+  <tr><td>Bio-Rad ⚠</td><td>Hercules</td><td>bio-rad / wd1 / Bio-Rad_External_Careers</td></tr>
+  <tr><td rowspan="3">CPG / food &amp; bev</td><td>Chipotle ★</td><td>Newport Beach</td><td>chipotle / wd5 / ChipotleCareers</td></tr>
+  <tr><td>Clorox</td><td>Oakland</td><td>clorox / wd1 / Clorox</td></tr>
+  <tr><td>Niagara Bottling ★</td><td>Ontario</td><td>niagarawater / wd5 / Niagara</td></tr>
+  <tr><td rowspan="3">Energy</td><td>Chevron ★ (jobs)</td><td>San Ramon</td><td>chevron / wd5 / jobs</td></tr>
+  <tr><td>Chevron (University site)</td><td>San Ramon</td><td>chevron / wd5 / University</td></tr>
+  <tr><td>Sunrun</td><td>San Francisco</td><td>sunrun / wd5 / Sunrun_Careers</td></tr>
+  <tr><td rowspan="1">Clean energy hardware</td><td>Bloom Energy</td><td>San Jose</td><td>bloomenergy / wd1 / BloomEnergyCareers</td></tr>
+  <tr><td rowspan="3">Retail / apparel / footwear</td><td>Levi Strauss</td><td>San Francisco</td><td>levistraussandco / wd5 / External</td></tr>
+  <tr><td>Deckers (UGG/HOKA)</td><td>Goleta</td><td>deckers / wd5 / Deckers</td></tr>
+  <tr><td>Skechers</td><td>Manhattan Beach</td><td>skechers / wd5 / One-career-site</td></tr>
+  <tr><td rowspan="1">Aerospace / defense</td><td>Northrop Grumman ★</td><td>Redondo Beach</td><td>ngc / wd1 / Northrop_Grumman_External_Site</td></tr>
+</table>
+
+<h4>Greenhouse (9) — board slug</h4>
+<table>
+  <tr><th>Employer</th><th>Location</th><th>Slug</th></tr>
+  <tr><td>Flexport (3PL)</td><td>San Francisco</td><td>flexport</td></tr>
+  <tr><td>Lucid Motors (EV mfg)</td><td>Newark</td><td>lucidmotors</td></tr>
+  <tr><td>Nuro</td><td>Mountain View</td><td>nuro</td></tr>
+  <tr><td>Samsara</td><td>San Francisco</td><td>samsara</td></tr>
+  <tr><td>DoorDash</td><td>San Francisco</td><td>doordashusa</td></tr>
+  <tr><td>Instacart</td><td>San Francisco</td><td>instacart</td></tr>
+  <tr><td>Waymo</td><td>Mountain View</td><td>waymo</td></tr>
+  <tr><td>Anduril ★</td><td>Costa Mesa</td><td>andurilindustries</td></tr>
+  <tr><td>SpaceX ★</td><td>Hawthorne</td><td>spacex</td></tr>
+</table>
+
+<h4>SmartRecruiters (1) &amp; bespoke scrapers</h4>
+<p>
+  <strong>SmartRecruiters:</strong> Western Digital (San Jose) → <code>WesternDigital</code>.<br>
+  <strong>Bespoke single-company scrapers</strong> ported from SWE — no config entry needed — that also hire CA SCM / operations:
+  <strong>Amazon, Apple, Tesla, Google, Microsoft, Meta, TikTok, Netflix</strong>.
+</p>
+
+<div class="note">
+  <strong>★</strong> = confirmed dedicated early-career SCM program (e.g. Edwards SCDP, Chevron PSCM, SpaceX ops internships/co-ops, Northrop SC intern).
+  <strong>⚠</strong> = ATS platform confirmed but the exact <code>wd{instance}</code>/<code>site</code> token is a best-guess from the public career domain; verify on first poll (Seagate, Bio-Rad, and the Chevron <code>jobs</code>/<code>University</code> split).
+</div>
+
+<div class="decision">
+  <strong>Known CA SCM employers on UNSUPPORTED ATS — deliberately skipped</strong> (would each need a new scraper):
+  Williams-Sonoma, Ross Stores (SAP SuccessFactors / NAS) · Mattel, Intuitive Surgical, The Wonderful Company, Rivian (Phenom) ·
+  Keysight (custom Avature-style) · Lam Research (Eightfold — a NetflixScraper-style adapter could be added later).
+  Also parked pending ATS confirmation: Gap, AMD, Enphase, Guess.
+</div>
+
+<h2 id="schedule">9. Scheduled Jobs &amp; Config</h2>
+<p>All schedules carried over from SWE unchanged (already set in the skeleton's <code>application.properties</code>):</p>
+<table>
+  <tr><th>Job</th><th>Cron / property</th><th>Schedule</th></tr>
+  <tr><td>Poll</td><td><code>job.poll.cron</code></td><td>every 15 min</td></tr>
+  <tr><td>Alert scan</td><td><code>job.notification.scan.cron</code></td><td>every 5 min</td></tr>
+  <tr><td>Daily summary</td><td><code>job.summary.cron</code></td><td>08:00 daily</td></tr>
+  <tr><td>Cleanup</td><td><code>job.cleanup.cron</code> / <code>job.retention.days=90</code></td><td>03:00 daily</td></tr>
+</table>
+<p>SCM-specific config keys already stubbed: <code>gemini.api.key</code>, <code>gemini.model=gemini-2.5-flash</code>, <code>job.companies.{greenhouse,lever,ashby,smartrecruiters}</code>, indexed Workday/OracleCloud/iCIMS blocks. <strong>Change needed (per D1):</strong> replace <code>job.notification.to.{entry,intern}</code> with a single <code>job.notification.to</code> (env <code>NOTIFICATION_EMAIL</code>).</p>
+
+<h2 id="obs">10. Observability</h2>
+<p>Same Micrometer counters/gauges as SWE, exposed at <code>http://localhost:8081/actuator/metrics/job.*</code>. The Stage-1/2/3 classification counters and per-track notification counters carry over; only label names in dashboards change (entry/intern instead of L3/L4). Rolling logs via <code>logback-spring.xml</code>, health at <code>/actuator/health</code>.</p>
+
+<h2 id="structure">11. Project Structure</h2>
+<p>Package tree is a 1:1 mirror (already created as empty <code>.gitkeep</code> dirs in the skeleton):</p>
+<pre><code>com.github.jingyangyu.scmjobnotifier
+├── ScmJobNotifierApplication.java
+├── config/          PlaywrightConfig, WebClientConfig, {Workday,Oracle,Icims}Properties
+├── controller/      ScrapeTestController        (debug trigger)
+├── model/           JobPosting                  (unchanged)
+├── notification/    EmailNotifier               (unchanged)
+├── repository/      JobPostingRepository        (unchanged)
+├── scraper/         JobScraper + per-platform    (unchanged code, new company lists)
+├── service/         JobPollingService, NotificationService,
+│                    DailySummaryService, JobCleanupService, PipelineMetrics
+│   └── classification/
+│        ├── ClassificationPipeline   (structure unchanged)
+│        ├── ClassificationResult
+│        ├── FilterKeywords           ← SCM: exclude list, INTERNSHIP/ENTRY patterns, SCM keywords
+│        ├── GeminiClient             ← SCM: entry-vs-intern prompt
+│        ├── JobClassifier
+│        ├── JobTitleFilter           ← SCM: California filter, SCM relevance, allow-intern
+│        ├── Signal
+│        └── SignalExtractor          ← SCM: intern/entry signals, YOE reuse
+└── util/            CsvUtil                      (unchanged)</code></pre>
+<p>The files marked <code>←</code> are the <strong>only</strong> classes with real logic changes. Everything else is a package-rename copy.</p>
+
+<h2 id="decisions">12. Resolved Design Decisions</h2>
+<p>All four are settled (2026-08-09) and reflected throughout the doc above.</p>
+
+<div class="note">
+  <span class="q"><strong>D1 — Notification structure → single email, single list.</strong></span><br>
+  One alert email to one recipient list (<code>job.notification.to</code>). ENTRY_LEVEL, INTERNSHIP, and UNSURE postings
+  appear as rows in one table with a <em>Type</em> column. The two-list SWE model is dropped. (See §7.)
+</div>
+<div class="note">
+  <span class="q"><strong>D2 — Remote roles → CA-tokened only.</strong></span><br>
+  Accept "Remote" only when the location also carries a CA / California token. Bare "Remote - US" is dropped for now. (See §5.3.)
+</div>
+<div class="note">
+  <span class="q"><strong>D3 — Gemini fallback → UNSURE.</strong></span><br>
+  After 3 failed Gemini attempts a posting is labeled <span class="pill unsure">UNSURE</span> (still emailed, flagged unclassified), not forced into entry or intern. (See §6 Retry &amp; Fallback.)
+</div>
+<div class="note">
+  <span class="q"><strong>D4 — Entry-level band → 0–3 YOE.</strong></span><br>
+  Stage 2: <code>0–3 years</code> (no intern signal) → ENTRY_LEVEL; <code>&gt; 3 years</code> → OTHER. (See §6 Stage 2.)
+</div>
+<p style="margin-top:20px;"><strong>Remaining before implementation:</strong> finalize the target-employer list (§8) and their ATS mappings; that's the only open input left.</p>
+
+<h2 id="appendix">Appendix A — SCM Title Taxonomy (research)</h2>
+<p>
+  Compiled 2026-08-09 from live 2026 SCM postings and title guides (sources below). Titles are grouped by how Stage 1
+  should treat them. This is the reference the §6 patterns are built from — extend the keyword lists here as new title
+  formats show up in production logs.
+</p>
+<table>
+  <tr><th>Stage 1 bucket</th><th>Real titles observed</th></tr>
+  <tr>
+    <td><span class="pill intern">INTERNSHIP</span><br><small>explicit intern token</small></td>
+    <td>Supply Chain Intern · Logistics Intern · Procurement Intern · Supply Planning Intern · Integrated Supply Chain Intern · Supply Chain Data Science Intern · Distribution Center Management (DCM) Internship · Logistics Co-op · Summer Analyst</td>
+  </tr>
+  <tr>
+    <td><span class="pill entry">ENTRY_LEVEL</span> — B<br><small>explicit level marker</small></td>
+    <td>Supply Chain Rotational Development Program (New College Grad) · Supply Chain Leadership Development Program · Management Trainee · Supply Chain Analyst I · Entry-Level Buyer · Junior Planner · New Grad Supply Chain Associate · Campus / Early Career hires</td>
+  </tr>
+  <tr>
+    <td><span class="pill entry">ENTRY_LEVEL</span> — C<br><small>entry-only role noun</small></td>
+    <td>Supply Chain Coordinator · Logistics Coordinator · Operations Coordinator · Transportation Coordinator · Purchasing Coordinator · Procurement Coordinator · Warehouse / Fulfillment / Shipping / Distribution Coordinator · Procurement Assistant · Purchasing Assistant · Sourcing Assistant · Buying / Buyer's Assistant · Demand Planning Assistant · Supply Planning Assistant · Supply Chain / Warehouse Administrator</td>
+  </tr>
+  <tr>
+    <td><span class="pill unsure">AMBIGUOUS</span> — D<br><small>defer to Stage 2/3</small></td>
+    <td>Supply Chain Analyst · Logistics Analyst · Operations Analyst · Inventory Analyst · Planning Analyst · Transport Analyst · Supply Chain Data Analyst · Procurement / Sourcing Specialist · Inventory Control Specialist · Buyer · Demand Planner · Supply Planner · Inventory Planner · Category Analyst</td>
+  </tr>
+  <tr>
+    <td><span class="pill other">OTHER</span><br><small>removed by §5.2 exclude</small></td>
+    <td>Senior Supply Chain Analyst · Supply Chain Manager · Procurement Lead · Director of Operations · VP Supply Chain · Sr. Buyer · Principal Planner</td>
+  </tr>
+</table>
+<p style="font-size:0.85rem;color:var(--muted);">
+  <strong>Sources:</strong>
+  <a href="https://coursecareers.com/blog-posts/10-entry-level-supply-chain-job-titles-beginners-should-target">CourseCareers — 10 entry-level SCM titles</a> ·
+  <a href="https://coursecareers.com/blog-posts/3-supply-chain-job-titles-for-beginners">CourseCareers — SCM titles for beginners</a> ·
+  <a href="https://research.com/advice/entry-level-jobs-with-a-supply-chain-management-degree">Research.com — entry-level SCM jobs</a> ·
+  <a href="https://www.indeed.com/q-supply-chain-internship-summer-2026-jobs.html">Indeed — Supply Chain Internship Summer 2026</a> ·
+  <a href="https://www.aptiv.com/en/jobs/students/leadership-development-programs/supply-chain-leadership-development-program">Aptiv SC LDP</a> ·
+  <a href="https://www.indeed.com/q-supply-chain-rotational-development-program-jobs.html">Indeed — SC Rotational Development Program</a>
+</p>
+
+<footer class="doc">
+  Draft technical design · SCM Job Notifier · mirrors <code>swe-job-notifier</code> · 2026-08-09
+</footer>
+
+</div>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'neutral', flowchart: { htmlLabels: true, useMaxWidth: true } });
+</script>
+</body>
+</html>
