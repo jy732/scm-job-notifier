@@ -124,18 +124,37 @@ public class WorkdayScraper implements JobScraper {
         String title = (String) posting.getOrDefault("title", "");
         String externalPath = (String) posting.getOrDefault("externalPath", "");
         String location = (String) posting.getOrDefault("locationsText", "");
-        String description = fetchJobDescription(config, externalPath);
+        // Metadata only — the description is deferred to fetchDescriptions() (post-dedup) so we
+        // don't hammer Workday with one detail request per job (which triggers HTTP 429). None of
+        // the pre-filters (freshness/exclude/California/SCM) need the description.
         return JobPosting.builder()
                 .company(company)
                 .externalId(externalPath)
                 .title(title)
                 .url(config.jobUrl(externalPath))
                 .location(location)
-                .description(description)
+                .description("")
                 .postedDate(null)
                 .detectedAt(Instant.now())
                 .notified(false)
                 .build();
+    }
+
+    /**
+     * Fetches full descriptions for the given (already pre-filtered + deduped) jobs. Called by the
+     * poll after dedup, so only the small surviving set pays for detail requests — a handful per
+     * company instead of thousands. Each job's {@code externalId} is its Workday {@code
+     * externalPath}; its company config is looked up by name.
+     */
+    @Override
+    public void fetchDescriptions(List<JobPosting> jobs) {
+        for (JobPosting job : jobs) {
+            Optional<WorkdayCompany> configOpt = properties.findByName(job.getCompany());
+            if (configOpt.isEmpty()) {
+                continue;
+            }
+            job.setDescription(fetchJobDescription(configOpt.get(), job.getExternalId()));
+        }
     }
 
     /**

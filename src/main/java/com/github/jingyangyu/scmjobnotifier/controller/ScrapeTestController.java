@@ -17,15 +17,16 @@ import reactor.core.scheduler.Schedulers;
 /**
  * Test endpoints for triggering scrapers/poll on demand without waiting for the poll cycle.
  *
- * <p>Handlers run on {@link Schedulers#boundedElastic()} because the scrapers and Gemini client call
- * {@code WebClient.block()}, which is illegal on the WebFlux Netty event-loop thread. (The scheduled
- * poll is unaffected — it already runs scrapes on a dedicated thread pool.)
+ * <p>Handlers run on {@link Schedulers#boundedElastic()} because the scrapers and Gemini client
+ * call {@code WebClient.block()}, which is illegal on the WebFlux Netty event-loop thread. (The
+ * scheduled poll is unaffected — it already runs scrapes on a dedicated thread pool.)
  *
  * <ul>
  *   <li>{@code POST /api/test/scrape/greenhouse/spacex} — scrape SpaceX via Greenhouse
  *   <li>{@code POST /api/test/scrape/workday/chipotle} — scrape Chipotle via Workday
  *   <li>{@code POST /api/test/scrape-all} — scrape all configured companies, return a summary
- *   <li>{@code POST /api/test/poll} — run one full poll cycle (scrape → filter → classify → persist)
+ *   <li>{@code POST /api/test/poll} — run one full poll cycle (scrape → filter → classify →
+ *       persist)
  * </ul>
  */
 @Slf4j
@@ -74,11 +75,10 @@ public class ScrapeTestController {
                         .map(
                                 j ->
                                         Map.of(
-                                                "title", j.getTitle(),
+                                                "title",
+                                                j.getTitle(),
                                                 "location",
-                                                        j.getLocation() != null
-                                                                ? j.getLocation()
-                                                                : ""))
+                                                j.getLocation() != null ? j.getLocation() : ""))
                         .toList();
 
         return Map.of(
@@ -120,7 +120,9 @@ public class ScrapeTestController {
         return results;
     }
 
-    /** Runs one full poll cycle synchronously (off the event loop) for manual end-to-end testing. */
+    /**
+     * Runs one full poll cycle synchronously (off the event loop) for manual end-to-end testing.
+     */
     @PostMapping("/poll")
     public Mono<Map<String, Object>> triggerPoll() {
         return Mono.fromCallable(

@@ -16,7 +16,9 @@ import reactor.netty.http.client.HttpClient;
 @Configuration
 public class WebClientConfig {
 
-    private static final int MAX_BUFFER_SIZE = 32 * 1024 * 1024; // 32 MB
+    // 64 MB: large Greenhouse boards fetched with content=true can exceed 32 MB
+    // (e.g. Anduril's board is ~36 MB of job HTML).
+    private static final int MAX_BUFFER_SIZE = 64 * 1024 * 1024; // 64 MB
     private static final int CONNECT_TIMEOUT_MS = 10_000;
     private static final int READ_TIMEOUT_S = 30;
     private static final int RESPONSE_TIMEOUT_S = 30;

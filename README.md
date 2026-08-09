@@ -9,18 +9,21 @@ for the full design (classification tracks, California filter, employer/ATS list
 
 ## Status
 
-**Implemented and building.** Full pipeline runs end-to-end against live career sites: scrape →
-freshness → exclude → California → SCM-relevance → dedup → 3-stage classify → persist → single-email
-alert.
+**Implemented, building, and verified end-to-end.** A full poll cycle runs against live career sites
+in ~150s with **zero scrape failures**: scrape → freshness → exclude → California → SCM-relevance →
+dedup → 3-stage classify → persist → single-email alert.
 
 | Piece | State |
 |---|---|
 | `pom.xml`, Maven wrapper, config, logging | done |
 | Model, repository, config-driven ATS scrapers (Greenhouse, Lever, Ashby, SmartRecruiters, Workday, OracleCloud) | done |
 | Classification pipeline (title → description → Gemini), single-email notifier, poll/summary/cleanup services, metrics | done |
-| 38 CA SCM employers configured with ATS mappings | done |
+| **41 CA companies across all 6 scrapers — every slug/param verified against the live ATS API** | done |
 | Playwright / bespoke single-company scrapers (Amazon, Apple, Google, …) | **deferred** — need per-scraper SCM query rework |
-| A few Workday `wd{N}`/`site` params (Seagate, Bio-Rad, Chevron, and others returning 0 jobs) | **verify** |
+
+All 6 scrapers and 41 companies were tested through the app and confirmed returning data. Three
+candidates were **dropped** as unreachable via a supported ATS: `qualcomm` (Workday moved/auth-gated),
+`seagate` (Workday on a custom domain), `bio-rad` (Phenom).
 
 ## Setup
 

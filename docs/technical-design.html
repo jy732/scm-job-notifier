@@ -452,25 +452,23 @@ OTHER  →  never emailed</code></pre>
 </p>
 <p>
   Target employers shift from tech-heavy to <strong>SCM-heavy, California-relevant</strong> firms. The list below is
-  <strong>finalized and live in <code>application.properties</code></strong> (Aug 2026): each employer was verified to (a) hire
-  entry-level / internship SCM roles in CA and (b) run on one of our supported ATS platforms, with the exact ATS identifier
-  captured. <strong>38 direct-config employers</strong> (28 Workday + 9 Greenhouse + 1 SmartRecruiters) plus the 8 bespoke
-  single-company scrapers ported from SWE.
+  <strong>live in <code>application.properties</code> and verified end-to-end</strong> (Aug 2026): every slug/param was
+  probed against the live ATS API and confirmed to return jobs, and a full poll runs all of them with zero scrape
+  failures. <strong>41 direct-config employers</strong> (26 Workday + 9 Greenhouse + 2 Lever + 2 Ashby + 1 SmartRecruiters
+  + 1 OracleCloud) plus the bespoke single-company scrapers (deferred; not yet ported from SWE).
 </p>
 
-<h4>Workday (28) — <code>subdomain</code> / <code>wd{instance}</code> / <code>site</code></h4>
+<h4>Workday (26) — <code>subdomain</code> / <code>wd{instance}</code> / <code>site</code></h4>
 <table>
   <tr><th>Segment</th><th>Employer</th><th>Location</th><th>Workday path</th></tr>
-  <tr><td rowspan="9">Semiconductors / hardware</td><td>NVIDIA</td><td>Santa Clara</td><td>nvidia / wd5 / NVIDIAExternalCareerSite</td></tr>
+  <tr><td rowspan="7">Semiconductors / hardware</td><td>NVIDIA</td><td>Santa Clara</td><td>nvidia / wd5 / NVIDIAExternalCareerSite</td></tr>
   <tr><td>Intel</td><td>Santa Clara</td><td>intel / wd1 / External</td></tr>
   <tr><td>Cisco</td><td>San Jose</td><td>cisco / wd5 / Cisco_Careers</td></tr>
   <tr><td>Broadcom</td><td>Palo Alto</td><td>broadcom / wd1 / External_Career</td></tr>
   <tr><td>Applied Materials</td><td>Santa Clara</td><td>amat / wd1 / External</td></tr>
-  <tr><td>Qualcomm</td><td>San Diego</td><td>qualcomm / wd5 / External</td></tr>
   <tr><td>Marvell</td><td>Santa Clara</td><td>marvell / wd1 / MarvellCareers</td></tr>
   <tr><td>KLA</td><td>Milpitas</td><td>kla / wd1 / Search</td></tr>
-  <tr><td>Seagate ⚠</td><td>Fremont</td><td>seagate / wd5 / Seagate</td></tr>
-  <tr><td rowspan="9">Med-device / pharma / biotech</td><td>Edwards Lifesciences ★</td><td>Irvine</td><td>edwards / wd5 / edwardscareers</td></tr>
+  <tr><td rowspan="8">Med-device / pharma / biotech</td><td>Edwards Lifesciences ★</td><td>Irvine</td><td>edwards / wd5 / edwardscareers</td></tr>
   <tr><td>Gilead Sciences</td><td>Foster City</td><td>gilead / wd1 / gileadcareers</td></tr>
   <tr><td>Amgen</td><td>Thousand Oaks</td><td>amgen / wd1 / Careers</td></tr>
   <tr><td>Illumina</td><td>San Diego</td><td>illumina / wd1 / illumina-careers</td></tr>
@@ -478,7 +476,6 @@ OTHER  →  never emailed</code></pre>
   <tr><td>ResMed</td><td>San Diego</td><td>resmed / wd3 / ResMed_External_Careers</td></tr>
   <tr><td>Stryker</td><td>Fremont (ops)</td><td>stryker / wd1 / StrykerCareers</td></tr>
   <tr><td>Genentech</td><td>South SF</td><td>roche / wd3 / ROG-A2O-GENE</td></tr>
-  <tr><td>Bio-Rad ⚠</td><td>Hercules</td><td>bio-rad / wd1 / Bio-Rad_External_Careers</td></tr>
   <tr><td rowspan="3">CPG / food &amp; bev</td><td>Chipotle ★</td><td>Newport Beach</td><td>chipotle / wd5 / ChipotleCareers</td></tr>
   <tr><td>Clorox</td><td>Oakland</td><td>clorox / wd1 / Clorox</td></tr>
   <tr><td>Niagara Bottling ★</td><td>Ontario</td><td>niagarawater / wd5 / Niagara</td></tr>
@@ -506,23 +503,33 @@ OTHER  →  never emailed</code></pre>
   <tr><td>SpaceX ★</td><td>Hawthorne</td><td>spacex</td></tr>
 </table>
 
-<h4>SmartRecruiters (1) &amp; bespoke scrapers</h4>
+<h4>Lever (2), Ashby (2), SmartRecruiters (1), OracleCloud (1)</h4>
+<table>
+  <tr><th>Platform</th><th>Employer</th><th>Location</th><th>Identifier</th></tr>
+  <tr><td rowspan="2">Lever</td><td>Zoox (AV)</td><td>Foster City</td><td>zoox</td></tr>
+  <tr><td>Veeva</td><td>Pleasanton</td><td>veeva</td></tr>
+  <tr><td rowspan="2">Ashby</td><td>OpenAI</td><td>San Francisco</td><td>openai</td></tr>
+  <tr><td>Snowflake</td><td>San Mateo</td><td>snowflake</td></tr>
+  <tr><td>SmartRecruiters</td><td>Western Digital</td><td>San Jose</td><td>WesternDigital</td></tr>
+  <tr><td>OracleCloud</td><td>Fortinet</td><td>Sunnyvale</td><td>edel / us2 / CX_2001</td></tr>
+</table>
 <p>
-  <strong>SmartRecruiters:</strong> Western Digital (San Jose) → <code>WesternDigital</code>.<br>
-  <strong>Bespoke single-company scrapers</strong> ported from SWE — no config entry needed — that also hire CA SCM / operations:
-  <strong>Amazon, Apple, Tesla, Google, Microsoft, Meta, TikTok, Netflix</strong>.
+  <strong>Bespoke single-company scrapers</strong> (Amazon, Apple, Tesla, Google, Microsoft, Meta, TikTok, Netflix) hire CA
+  SCM / operations but are <strong>deferred</strong> — they hardcode SWE-style queries and need per-scraper rework.
 </p>
 
 <div class="note">
   <strong>★</strong> = confirmed dedicated early-career SCM program (e.g. Edwards SCDP, Chevron PSCM, SpaceX ops internships/co-ops, Northrop SC intern).
-  <strong>⚠</strong> = ATS platform confirmed but the exact <code>wd{instance}</code>/<code>site</code> token is a best-guess from the public career domain; verify on first poll (Seagate, Bio-Rad, and the Chevron <code>jobs</code>/<code>University</code> split).
+  <br><strong>Workday note:</strong> descriptions are fetched in the two-phase <code>fetchDescriptions()</code> step (post-dedup),
+  not inline during <code>scrape()</code> — otherwise big boards issue thousands of detail requests and hit HTTP 429.
+  Greenhouse's <code>content=true</code> can exceed the WebClient buffer (Anduril's board is ~36 MB), so the buffer is 64 MB.
 </div>
 
 <div class="decision">
-  <strong>Known CA SCM employers on UNSUPPORTED ATS — deliberately skipped</strong> (would each need a new scraper):
-  Williams-Sonoma, Ross Stores (SAP SuccessFactors / NAS) · Mattel, Intuitive Surgical, The Wonderful Company, Rivian (Phenom) ·
-  Keysight (custom Avature-style) · Lam Research (Eightfold — a NetflixScraper-style adapter could be added later).
-  Also parked pending ATS confirmation: Gap, AMD, Enphase, Guess.
+  <strong>Dropped — not reachable via a supported ATS:</strong> Qualcomm (Workday moved to an auth-gated custom domain),
+  Seagate (Workday on custom domain <code>seagatecareers.com</code>), Bio-Rad (Phenom).
+  <strong>Also skipped (unsupported ATS):</strong> Williams-Sonoma, Ross Stores (SuccessFactors / NAS) · Mattel, Intuitive Surgical,
+  The Wonderful Company, Rivian (Phenom) · Keysight (custom) · Lam Research (Eightfold — a NetflixScraper-style adapter could be added later).
 </div>
 
 <h2 id="schedule">9. Scheduled Jobs &amp; Config</h2>
@@ -534,7 +541,7 @@ OTHER  →  never emailed</code></pre>
   <tr><td>Daily summary</td><td><code>job.summary.cron</code></td><td>08:00 daily</td></tr>
   <tr><td>Cleanup</td><td><code>job.cleanup.cron</code> / <code>job.retention.days=90</code></td><td>03:00 daily</td></tr>
 </table>
-<p>SCM-specific config keys already stubbed: <code>gemini.api.key</code>, <code>gemini.model=gemini-2.5-flash</code>, <code>job.companies.{greenhouse,lever,ashby,smartrecruiters}</code>, indexed Workday/OracleCloud/iCIMS blocks. <strong>Change needed (per D1):</strong> replace <code>job.notification.to.{entry,intern}</code> with a single <code>job.notification.to</code> (env <code>NOTIFICATION_EMAIL</code>).</p>
+<p>SCM-specific config keys: <code>gemini.api.key</code>, <code>gemini.model=gemini-2.5-flash</code>, <code>job.companies.{greenhouse,lever,ashby,smartrecruiters}</code>, indexed Workday/OracleCloud blocks, and (per D1) the single <code>job.notification.to</code> (env <code>NOTIFICATION_EMAIL</code>).</p>
 
 <h2 id="obs">10. Observability</h2>
 <p>Same Micrometer counters/gauges as SWE, exposed at <code>http://localhost:8081/actuator/metrics/job.*</code>. The Stage-1/2/3 classification counters and per-track notification counters carry over; only label names in dashboards change (entry/intern instead of L3/L4). Rolling logs via <code>logback-spring.xml</code>, health at <code>/actuator/health</code>.</p>
