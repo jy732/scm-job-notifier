@@ -39,7 +39,7 @@ Its H2 database lives in this project's own `./data/` directory, independent of 
 
 ```
 com.github.jingyangyu.scmjobnotifier
-├── config/                  # @ConfigurationProperties, WebClient, Playwright beans
+├── config/                  # @ConfigurationProperties, WebClient bean
 ├── controller/              # test/debug endpoints
 ├── model/                   # JobPosting JPA entity
 ├── notification/            # email sending
@@ -50,21 +50,42 @@ com.github.jingyangyu.scmjobnotifier
 └── util/                    # shared helpers
 ```
 
-## Intended pipeline
+## Pipeline
 
 Mirrors the SWE app, with the classification target changed from SWE level (L3/L4) to
-SCM **entry-level vs. internship**:
+SCM **entry-level / internship / unsure**:
 
 ```
-scrape → dedup (company + externalId) → exclude filter → US location filter
-       → SCM-relevance title filter → signal extraction → LLM classify → notify
+scrape → freshness → exclude filter → California location filter → SCM-relevance title filter
+       → dedup (company + externalId) → fetch descriptions → 3-stage classify → persist → notify
 ```
+
+## Email alert
+
+The 5-minute scan sends **one email** to `NOTIFICATION_EMAIL` listing every new entry-level /
+internship / unsure posting in a single table, with a **Type** column (Decision D1). The daily
+8 AM summary uses the same layout.
+
+**Subject:** `[SCM Job Alert] 3 new CA SCM posting(s) detected`
+
+**Body** — *New SCM Postings (California)*:
+
+| Type | Company | Title | Location | Area | Link |
+|------|---------|-------|----------|------|------|
+| Entry-Level | Edwards Lifesciences | Supply Chain Analyst | Irvine, CA | Greater LA | Apply |
+| Internship | Chevron | Supply Chain Intern – Summer 2026 | San Ramon, CA | SF Bay Area | Apply |
+| Unsure | Illumina | Inventory Analyst | San Diego, CA | Other | Apply |
+
+The **Area** column buckets each CA location into **SF Bay Area / Greater LA / Other** (San Diego,
+Sacramento, Central Valley, remote → Other). `OTHER`-classified jobs are stored but never emailed;
+remote roles display as `Remote (CA)`. See [`docs/technical-design.html`](docs/technical-design.html)
+§7 for a rendered preview.
 
 ## Configuration
 
-Company lists in `application.properties` are empty placeholders — populate per ATS platform
-(`job.companies.greenhouse`, `.lever`, `.ashby`, `.smartrecruiters`, plus the indexed Workday /
-OracleCloud / iCIMS blocks) once target employers are chosen.
+Company lists in `application.properties` are populated and verified: `job.companies.greenhouse`
+(9), `.lever` (2), `.ashby` (2), `.smartrecruiters` (1), the indexed Workday block (26), and the
+OracleCloud block (1) — 41 companies in all.
 
 Cron schedules carried over from the SWE app: poll every 15 min, notification scan every 5 min,
 daily summary at 8:00 AM, retention cleanup at 3:00 AM (90-day retention).

@@ -50,15 +50,20 @@ public class JobTitleFilter {
     }
 
     /**
-     * Tier 1: Returns true if the title should be excluded (senior/staff/manager/director/lead
-     * etc.). Interns are intentionally NOT excluded — they are a target track.
+     * Tier 1: Returns true if the title should be excluded — either a seniority marker
+     * (senior/staff/manager/director/lead etc.) or a non-SCM role (software/ML/data-science, which
+     * can slip through the SCM keyword gate via terms like "freight"/"planner"). Interns are
+     * intentionally NOT excluded — they are a target track.
      */
     public boolean shouldExclude(JobPosting job) {
         String title = job.getTitle().toLowerCase(Locale.ROOT);
         if (FilterKeywords.EXCLUDE_KEYWORDS.stream().anyMatch(title::contains)) {
             return true;
         }
-        return FilterKeywords.EXCLUDE_LEAD_PATTERN.matcher(title).find();
+        if (FilterKeywords.EXCLUDE_LEAD_PATTERN.matcher(title).find()) {
+            return true;
+        }
+        return FilterKeywords.NON_SCM_PATTERN.matcher(title).find();
     }
 
     /**

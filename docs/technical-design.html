@@ -429,19 +429,33 @@ if candidates not empty:
     send ONE email  →  job.notification.to        (single recipient list)
     on success → notified = true   |   on failure → retry next scan
 OTHER  →  never emailed</code></pre>
-<h4>Email layout</h4>
-<table>
-  <tr><th>Type</th><th>Title</th><th>Company</th><th>Location</th><th>Link</th></tr>
-  <tr><td><span class="pill entry">ENTRY_LEVEL</span></td><td>Supply Chain Analyst</td><td>Edwards Lifesciences</td><td>Irvine, CA</td><td>apply →</td></tr>
-  <tr><td><span class="pill intern">INTERNSHIP</span></td><td>Procurement Intern – Summer 2026</td><td>Tesla</td><td>Fremont, CA</td><td>apply →</td></tr>
-  <tr><td><span class="pill unsure">UNSURE</span></td><td>Logistics Associate</td><td>Flexport</td><td>San Francisco, CA</td><td>apply →</td></tr>
-</table>
-<div class="note">
-  <strong>Config impact:</strong> the skeleton's two vars <code>NOTIFICATION_EMAIL_ENTRY</code> /
-  <code>NOTIFICATION_EMAIL_INTERN</code> (and properties <code>job.notification.to.entry</code> /
-  <code>.intern</code>) collapse to a single <code>NOTIFICATION_EMAIL</code> → <code>job.notification.to</code>.
-  This needs a one-line edit in <code>application.properties</code> and <code>.env.example</code> when implementation starts.
+<h4>Email preview</h4>
+<p>Exactly what the 5-minute alert scan sends — one email, one table, a <em>Type</em> column. The daily 8 AM summary is identical but with a <code>[SCM Summary] … in the last 24 hours</code> subject.</p>
+
+<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;max-width:760px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin:16px 0;">
+  <div style="background:#f6f8fa;border-bottom:1px solid var(--border);padding:12px 16px;font-size:0.88rem;">
+    <div style="color:var(--muted);"><span style="display:inline-block;width:64px;">From</span> SCM Job Notifier &lt;you@gmail.com&gt;</div>
+    <div style="color:var(--muted);"><span style="display:inline-block;width:64px;">To</span> you@example.com</div>
+    <div style="margin-top:4px;"><span style="display:inline-block;width:64px;color:var(--muted);">Subject</span> <strong>[SCM Job Alert] 3 new CA SCM posting(s) detected</strong></div>
+  </div>
+  <div style="padding:16px 18px;background:#fff;font-family:-apple-system,Helvetica,Arial,sans-serif;">
+    <h2 style="font-size:1.15rem;margin:0 0 12px;border:none;">New SCM Postings (California)</h2>
+    <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;font-size:0.86rem;width:100%;">
+      <tr style="background:#f6f8fa;"><th>Type</th><th>Company</th><th>Title</th><th>Location</th><th>Area</th><th>Link</th></tr>
+      <tr><td>Entry-Level</td><td>Edwards Lifesciences</td><td>Supply Chain Analyst</td><td>Irvine, CA</td><td>Greater LA</td><td><a href="#" style="color:var(--accent);">Apply</a></td></tr>
+      <tr><td>Internship</td><td>Chevron</td><td>Supply Chain Intern – Summer 2026</td><td>San Ramon, CA</td><td>SF Bay Area</td><td><a href="#" style="color:var(--accent);">Apply</a></td></tr>
+      <tr><td>Unsure</td><td>Illumina</td><td>Inventory Analyst</td><td>San Diego, CA</td><td>Other</td><td><a href="#" style="color:var(--accent);">Apply</a></td></tr>
+    </table>
+  </div>
 </div>
+
+<p style="font-size:0.85rem;color:var(--muted);">
+  Rendered exactly as <code>EmailNotifier</code> builds it — a plain bordered HTML table (max email-client compatibility).
+  Columns: <code>Type · Company · Title · Location · Area · Link</code>; Type is the label <strong>Entry-Level / Internship / Unsure</strong>;
+  <strong>Area</strong> buckets the CA location into <strong>SF Bay Area / Greater LA / Other</strong> (San Diego, Sacramento,
+  Central Valley, remote → Other); remote roles display as <code>Remote (CA)</code>; the link is an <code>Apply</code> anchor.
+  Recipients come from the single <code>job.notification.to</code> (env <code>NOTIFICATION_EMAIL</code>).
+</p>
 
 <h2 id="platforms">8. Scrapers &amp; Target Employers</h2>
 <p>

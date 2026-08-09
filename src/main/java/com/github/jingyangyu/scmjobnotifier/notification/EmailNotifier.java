@@ -156,13 +156,14 @@ public class EmailNotifier {
                         + " style='border-collapse:collapse;'>");
         sb.append(
                 "<tr><th>Type</th><th>Company</th><th>Title</th><th>Location</th>"
-                        + "<th>Link</th></tr>");
+                        + "<th>Area</th><th>Link</th></tr>");
         for (JobPosting job : jobs) {
             sb.append("<tr>");
             sb.append("<td>").append(typeLabel(job.getLevel())).append("</td>");
             sb.append("<td>").append(escape(job.getCompany())).append("</td>");
             sb.append("<td>").append(escape(job.getTitle())).append("</td>");
             sb.append("<td>").append(escape(formatLocation(job.getLocation()))).append("</td>");
+            sb.append("<td>").append(regionLabel(job.getLocation())).append("</td>");
             sb.append("<td><a href='").append(escape(job.getUrl())).append("'>Apply</a></td>");
             sb.append("</tr>");
         }
@@ -180,6 +181,103 @@ public class EmailNotifier {
             case "INTERNSHIP" -> "Internship";
             default -> "Unsure";
         };
+    }
+
+    // ── Metro buckets for the Area column ──
+    private static final List<String> BAY_AREA_CITIES =
+            List.of(
+                    "bay area",
+                    "san francisco",
+                    "south san francisco",
+                    "san jose",
+                    "oakland",
+                    "fremont",
+                    "sunnyvale",
+                    "santa clara",
+                    "mountain view",
+                    "palo alto",
+                    "cupertino",
+                    "milpitas",
+                    "pleasanton",
+                    "san mateo",
+                    "redwood city",
+                    "menlo park",
+                    "san bruno",
+                    "san carlos",
+                    "foster city",
+                    "campbell",
+                    "berkeley",
+                    "emeryville",
+                    "hercules",
+                    "san ramon",
+                    "dublin",
+                    "livermore",
+                    "hayward",
+                    "newark",
+                    "santa rosa",
+                    "napa",
+                    "concord",
+                    "walnut creek",
+                    "alameda",
+                    "san leandro",
+                    "burlingame",
+                    "san rafael");
+
+    private static final List<String> LA_AREA_CITIES =
+            List.of(
+                    "los angeles",
+                    "long beach",
+                    "irvine",
+                    "anaheim",
+                    "santa ana",
+                    "el segundo",
+                    "torrance",
+                    "city of industry",
+                    "costa mesa",
+                    "newport beach",
+                    "manhattan beach",
+                    "redondo beach",
+                    "hawthorne",
+                    "culver city",
+                    "pasadena",
+                    "burbank",
+                    "glendale",
+                    "thousand oaks",
+                    "santa monica",
+                    "ontario",
+                    "san bernardino",
+                    "riverside",
+                    "fullerton",
+                    "santa clarita",
+                    "van nuys",
+                    "carson",
+                    "cerritos",
+                    "inglewood",
+                    "woodland hills",
+                    "westlake village",
+                    "calabasas",
+                    "simi valley",
+                    "oxnard");
+
+    /**
+     * Buckets a California location into one of three metro areas for the Area column: "SF Bay
+     * Area", "Greater LA", or "Other" (San Diego, Sacramento, Central Valley, remote, etc.).
+     */
+    private static String regionLabel(String location) {
+        if (location == null || location.isBlank()) {
+            return "Other";
+        }
+        String loc = location.toLowerCase();
+        if (loc.contains("remote")) {
+            return "Other";
+        }
+        if (BAY_AREA_CITIES.stream().anyMatch(loc::contains)) {
+            return "SF Bay Area";
+        }
+        if (LA_AREA_CITIES.stream().anyMatch(loc::contains)) {
+            return "Greater LA";
+        }
+        return "Other";
     }
 
     /**
