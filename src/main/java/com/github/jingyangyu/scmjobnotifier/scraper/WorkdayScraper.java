@@ -3,6 +3,7 @@ package com.github.jingyangyu.scmjobnotifier.scraper;
 import com.github.jingyangyu.scmjobnotifier.config.WorkdayProperties;
 import com.github.jingyangyu.scmjobnotifier.config.WorkdayProperties.WorkdayCompany;
 import com.github.jingyangyu.scmjobnotifier.model.JobPosting;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -15,6 +16,8 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.util.retry.Retry;
 
 /**
  * Scraper for companies that use Workday as their ATS. Posts search requests to the Workday CXS
@@ -27,8 +30,27 @@ public class WorkdayScraper implements JobScraper {
 
     private static final int PAGE_SIZE = 20;
 
+    /** Safety cap (2000 jobs) so a misbehaving tenant can't loop forever. */
+    private static final int MAX_PAGES = 100;
+
+    /**
+     * Retry on HTTP 429 with exponential backoff + jitter. Necessary because ~40 Workday companies
+     * poll in parallel (8-thread pool) and Workday's CXS API rate-limits under that load, which
+     * would otherwise cut pagination short (partial ~40 jobs per company). Jitter de-synchronizes
+     * the retries so the pool doesn't stampede.
+     */
+    private static final Retry RATE_LIMIT_RETRY =
+            Retry.backoff(4, Duration.ofSeconds(2))
+                    .maxBackoff(Duration.ofSeconds(20))
+                    .jitter(0.5)
+                    .filter(WorkdayScraper::isRateLimited);
+
     private final WebClient webClient;
     private final WorkdayProperties properties;
+
+    private static boolean isRateLimited(Throwable t) {
+        return t instanceof WebClientResponseException e && e.getStatusCode().value() == 429;
+    }
 
     public WorkdayScraper(WebClient.Builder webClientBuilder, WorkdayProperties properties) {
         this.webClient = webClientBuilder.build();
@@ -70,28 +92,40 @@ public class WorkdayScraper implements JobScraper {
         WorkdayCompany config = configOpt.get();
         List<JobPosting> allJobs = new ArrayList<>();
         int offset = 0;
-        int total;
+        // Workday's CXS reports the real "total" only on the FIRST page (0 on later pages), so we
+        // capture it once and never overwrite with 0 — otherwise the loop stops after page 2 (40
+        // jobs). We also stop when a page returns no postings, with a MAX_PAGES safety cap.
+        int total = 0;
 
         try {
-            do {
+            for (int page = 0; page < MAX_PAGES; page++) {
                 Map<String, Object> response = fetchPage(config, offset);
                 if (response == null) {
                     break;
                 }
 
-                total = ((Number) response.getOrDefault("total", 0)).intValue();
+                int pageTotal = ((Number) response.getOrDefault("total", 0)).intValue();
+                if (pageTotal > 0) {
+                    total = pageTotal;
+                }
 
                 @SuppressWarnings("unchecked")
                 List<Map<String, Object>> postings =
                         (List<Map<String, Object>>)
                                 response.getOrDefault("jobPostings", Collections.emptyList());
+                if (postings.isEmpty()) {
+                    break;
+                }
 
                 for (Map<String, Object> posting : postings) {
                     allJobs.add(toJobPosting(company, config, posting));
                 }
 
                 offset += PAGE_SIZE;
-            } while (offset < total);
+                if (offset >= total) {
+                    break;
+                }
+            }
 
             log.info("Workday [{}]: scraped {} total job(s)", company, allJobs.size());
             return allJobs;
@@ -116,6 +150,7 @@ public class WorkdayScraper implements JobScraper {
                 .bodyValue(body)
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .retryWhen(RATE_LIMIT_RETRY)
                 .block();
     }
 
@@ -180,6 +215,7 @@ public class WorkdayScraper implements JobScraper {
                             .accept(MediaType.APPLICATION_JSON)
                             .retrieve()
                             .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                            .retryWhen(RATE_LIMIT_RETRY)
                             .block();
             if (detail == null) {
                 return "";
