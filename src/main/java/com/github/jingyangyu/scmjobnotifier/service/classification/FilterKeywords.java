@@ -44,16 +44,32 @@ final class FilterKeywords {
     // a strong ENTRY_LEVEL signal. \b after "lead" fails on "leadership" (followed by 'e').
     static final Pattern EXCLUDE_LEAD_PATTERN = Pattern.compile("(?i)\\blead\\b");
 
-    // ── Tier 1b: Non-SCM hard exclude ──
-    // Drop technical/individual-contributor roles that leak in when a broad SCM keyword appears in
-    // a
-    // software/hardware title (e.g. "Software Engineer, Autonomous Freight Systems", "Data
-    // Scientist, Demand Forecasting"). Kept deliberately simple: any title with engineer /
-    // scientist
-    // / developer as a whole word is excluded. NOTE: this also drops genuine SCM engineering roles
-    // (Supply Chain Engineer, Supplier Development Engineer, Sourcing/Industrial Engineer).
+    // ── Tier 1b: Non-SCM hard exclude (guarded) ──
+    // Drop technical/IC roles (engineer/scientist/developer) that leak in when an ambiguous SCM
+    // keyword appears in a software/hardware title (e.g. "Software Engineer, Autonomous Freight
+    // Systems", "Materials Engineer, Metals"). These must be dropped BEFORE Stage 1/2, which would
+    // otherwise auto-classify them ENTRY from a title marker or YOE and skip Gemini entirely.
     static final Pattern NON_SCM_PATTERN =
             Pattern.compile("(?i)\\b(engineer|scientist|developer)\\b");
+
+    // Guard for NON_SCM_PATTERN: an engineer/scientist/developer title is kept (not excluded) when
+    // it also contains one of these unambiguous SCM anchors — this rescues genuine SCM engineering
+    // roles ("Supplier Development Engineer"/SQE, "Supply Chain Engineer", "Sourcing Engineer").
+    // Deliberately omits ambiguous words (materials/freight/planner/transportation) that also occur
+    // in software/AV/materials-science titles.
+    static final List<String> SCM_ANCHOR_KEYWORDS =
+            List.of(
+                    "supply chain",
+                    "supplier",
+                    "sourcing",
+                    "procurement",
+                    "purchasing",
+                    "logistics",
+                    "warehouse",
+                    "inventory",
+                    "commodity",
+                    "s&op",
+                    "replenishment");
 
     // ── Stage 1A: INTERNSHIP — explicit intern token (highest priority) ──
     // \b guards keep "intern" from matching "internal"/"international".

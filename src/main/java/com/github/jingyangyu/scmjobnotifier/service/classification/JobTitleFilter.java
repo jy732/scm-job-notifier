@@ -63,7 +63,11 @@ public class JobTitleFilter {
         if (FilterKeywords.EXCLUDE_LEAD_PATTERN.matcher(title).find()) {
             return true;
         }
-        return FilterKeywords.NON_SCM_PATTERN.matcher(title).find();
+        // Non-SCM technical role (engineer/scientist/developer) — excluded UNLESS the title carries
+        // a strong SCM anchor, which keeps genuine SCM engineering roles (SQE, Supply Chain
+        // Engineer, Sourcing Engineer) while dropping software/materials-science titles.
+        return FilterKeywords.NON_SCM_PATTERN.matcher(title).find()
+                && FilterKeywords.SCM_ANCHOR_KEYWORDS.stream().noneMatch(title::contains);
     }
 
     /**
