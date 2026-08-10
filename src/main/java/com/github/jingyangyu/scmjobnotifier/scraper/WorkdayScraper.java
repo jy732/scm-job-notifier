@@ -5,12 +5,15 @@ import com.github.jingyangyu.scmjobnotifier.config.WorkdayProperties.WorkdayComp
 import com.github.jingyangyu.scmjobnotifier.model.JobPosting;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
@@ -30,8 +33,19 @@ public class WorkdayScraper implements JobScraper {
 
     private static final int PAGE_SIZE = 20;
 
-    /** Safety cap (2000 jobs) so a misbehaving tenant can't loop forever. */
-    private static final int MAX_PAGES = 100;
+    /**
+     * Recency window. Workday returns jobs newest-first, so we paginate only until a page is
+     * entirely older than this — we just need recent postings (the 15-min poll + dedup captures
+     * every new one while it's fresh). This bounds each company by recency, not an arbitrary page
+     * count: fast-posting firms fetch more pages, slow ones fewer.
+     */
+    private static final int MAX_DAYS_POSTED = 30;
+
+    /** Safety backstop so a misbehaving tenant can't loop forever. */
+    private static final int MAX_PAGES = 200;
+
+    /** Extracts the leading number from Workday's relative "postedOn" string. */
+    private static final Pattern POSTED_DAYS = Pattern.compile("(\\d+)");
 
     /**
      * Retry on HTTP 429 with exponential backoff + jitter. Necessary because ~40 Workday companies
@@ -71,15 +85,13 @@ public class WorkdayScraper implements JobScraper {
     }
 
     /**
-     * Scrapes all job postings for a Workday company via paginated API calls.
+     * Scrapes recent job postings for a Workday company via paginated API calls.
      *
-     * <p>Workday's CXS API returns jobs in pages of {@value #PAGE_SIZE}. We iterate until {@code
-     * offset >= total}. On failure mid-pagination, we return partial results rather than nothing —
-     * better to process some jobs than lose an entire company's listings.
-     *
-     * <p>Note: Workday does not provide a posted date in the search results, so {@code postedDate}
-     * is always null for Workday jobs. This means the freshness filter (Tier 0) will accept all
-     * Workday jobs.
+     * <p>Workday returns jobs newest-first in pages of {@value #PAGE_SIZE}. We keep only postings
+     * within {@link #MAX_DAYS_POSTED} days and stop once an entire page is older than the window (a
+     * {@link #MAX_PAGES} backstop guards against a misbehaving tenant). A rough {@code postedDate}
+     * is derived from Workday's relative "postedOn" string. On failure mid-pagination we return
+     * partial results rather than nothing.
      */
     @Override
     public List<JobPosting> scrape(String company) {
@@ -117,12 +129,20 @@ public class WorkdayScraper implements JobScraper {
                     break;
                 }
 
+                int recentOnPage = 0;
                 for (Map<String, Object> posting : postings) {
-                    allJobs.add(toJobPosting(company, config, posting));
+                    int days = parsePostedDays((String) posting.getOrDefault("postedOn", ""));
+                    if (days <= MAX_DAYS_POSTED) {
+                        recentOnPage++;
+                        allJobs.add(toJobPosting(company, config, posting, days));
+                    }
                 }
 
                 offset += PAGE_SIZE;
-                if (offset >= total) {
+                // Newest-first: once an entire page is older than the window we've passed the
+                // recent
+                // zone (a lone pinned/old job on an otherwise-recent page doesn't stop us).
+                if (recentOnPage == 0 || offset >= total) {
                     break;
                 }
             }
@@ -155,7 +175,7 @@ public class WorkdayScraper implements JobScraper {
     }
 
     private JobPosting toJobPosting(
-            String company, WorkdayCompany config, Map<String, Object> posting) {
+            String company, WorkdayCompany config, Map<String, Object> posting, int postedDaysAgo) {
         String title = (String) posting.getOrDefault("title", "");
         String externalPath = (String) posting.getOrDefault("externalPath", "");
         String location = (String) posting.getOrDefault("locationsText", "");
@@ -169,10 +189,37 @@ public class WorkdayScraper implements JobScraper {
                 .url(config.jobUrl(externalPath))
                 .location(location)
                 .description("")
-                .postedDate(null)
+                // Approx posted date from the relative "postedOn" — lets the freshness filter and
+                // the 90-day cleanup work for Workday jobs (previously null → never cleaned up).
+                .postedDate(Instant.now().minus(postedDaysAgo, ChronoUnit.DAYS))
                 .detectedAt(Instant.now())
                 .notified(false)
                 .build();
+    }
+
+    /**
+     * Parses Workday's relative {@code postedOn} ("Posted Today" / "Posted Yesterday" / "Posted N
+     * Days Ago" / "Posted 30+ Days Ago") into an age in days. A trailing "+" (Workday caps the
+     * display at "30+") is treated as older than the number, so "30+" &gt; a 30-day window. Unknown
+     * or blank returns 0 (treated as recent) so a parse miss never drops a job or stops early.
+     */
+    private static int parsePostedDays(String postedOn) {
+        if (postedOn == null || postedOn.isBlank()) {
+            return 0;
+        }
+        String s = postedOn.toLowerCase();
+        if (s.contains("today")) {
+            return 0;
+        }
+        if (s.contains("yesterday")) {
+            return 1;
+        }
+        Matcher m = POSTED_DAYS.matcher(s);
+        if (m.find()) {
+            int n = Integer.parseInt(m.group(1));
+            return s.contains("+") ? n + 1 : n; // "30+" → 31 (older than a 30-day window)
+        }
+        return 0;
     }
 
     /**
