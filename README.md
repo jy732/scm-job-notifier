@@ -23,8 +23,9 @@ SCM track ENTRY_LEVEL / INTERNSHIP / UNSURE), **location** (US → California on
 A single Spring Boot process runs four scheduled jobs against a file-based H2 database. The main poll
 cycle:
 
-1. **Scrape** — every 15 min, polls 41 company career sites using an 8-thread pool (3-min per-company
-   timeout). **Greenhouse and Workday** fetch metadata only and defer descriptions to post-dedup;
+1. **Scrape** — every 15 min, polls 41 config-driven companies (6 ATS platforms) plus 4 bespoke
+   single-company scrapers (Amazon, Microsoft, Apple, Tesla) using an 8-thread pool (3-min
+   per-company timeout). **Greenhouse and Workday** fetch metadata only and defer descriptions to post-dedup;
    **Lever / Ashby / SmartRecruiters / OracleCloud** bundle descriptions into the list response (no
    lighter metadata-only call exists for them).
 2. **Pre-filter** — drops stale postings, non-California locations, non-SCM titles, and
@@ -145,7 +146,8 @@ The daily 8 AM summary uses the same layout.
 
 ## Supported Platforms & Companies
 
-41 companies, all verified against the live ATS API (return jobs) as of Aug 2026.
+41 config-driven companies across 6 ATS platforms (all verified against the live ATS API as of Aug
+2026), plus 4 bespoke single-company scrapers.
 
 | Platform | Method | Count | Companies |
 |----------|--------|-------|-----------|
@@ -157,8 +159,26 @@ The daily 8 AM summary uses the same layout.
 | **OracleCloud** | Recruiting REST API | 1 | fortinet |
 
 **Dropped** (no supported ATS): `qualcomm` (Workday moved/auth-gated), `seagate` (Workday on custom
-domain), `bio-rad` (Phenom). **Deferred:** the bespoke single-company scrapers (Amazon/Apple/Google/…)
-hire CA SCM but hardcode SWE-style queries and need per-scraper rework.
+domain), `bio-rad` (Phenom).
+
+### Single-company scrapers (bespoke)
+
+Ported from swe-job-notifier and re-targeted for SCM — each searches supply-chain terms (multi-query,
+de-duplicated), narrowed to CA where the site allows and enforced by the California pre-filter. No
+company list; one scraper per class.
+
+| Scraper | Method | Status (Aug 2026) |
+|---------|--------|-------------------|
+| **Amazon** | Jobs search JSON API | ✅ working (~375 raw SCM hits before filtering) |
+| **Microsoft** | PCSX search JSON API | ✅ working — but the search API returns **no description**, so its postings are classified by title (Stage 1) + Gemini (Stage 3) only |
+| **Apple** | Playwright (hydration JSON) | ✅ working (~192 raw hits; descriptions inline) |
+| **Tesla** | Playwright (DOM) | ⚠️ **blocked by Akamai WAF** — headless requests get "Access Denied", so the scraper returns 0 and fails gracefully (no error). Structurally correct; yielding results would need a stealth / residential-proxy setup or Tesla's internal API. |
+
+Still **deferred** (not yet ported, low SCM yield): Google, Meta, Netflix, TikTok.
+
+> **Playwright note:** Tesla and Apple use a headless Chromium browser (Playwright). This pushes the
+> runnable jar to ~275 MB and downloads Chromium on first run. If you don't need them, removing the
+> `com.microsoft.playwright` dependency + `PlaywrightConfig` + the two scrapers drops the jar to ~75 MB.
 
 ---
 
@@ -166,6 +186,7 @@ hire CA SCM but hardcode SWE-style queries and need per-scraper rework.
 
 - Java 17+ (builds/runs on 21)
 - Maven (wrapper included)
+- Chromium — auto-installed by Playwright on first run (needed only for the Tesla/Apple scrapers)
 - Gmail account with an [App Password](https://myaccount.google.com/apppasswords) (for sending)
 - Gemini API key (optional — without it, all ambiguous jobs are approved as UNSURE)
 
@@ -293,6 +314,7 @@ All settings live in `src/main/resources/application.properties`:
 
 - **Framework:** Spring Boot 4.0.5, Java 17
 - **HTTP scraping:** WebClient (WebFlux), 64 MB buffer, 10 s connect / 30 s read timeouts
+- **Browser scraping:** Playwright 1.52.0 (headless Chromium) for Tesla + Apple
 - **Database:** H2 (file-based), Spring Data JPA
 - **AI:** Google Gemini 2.5 Flash (3-stage classifier, Stage 3 only)
 - **Email:** Spring Mail (Gmail SMTP), retry with backoff
