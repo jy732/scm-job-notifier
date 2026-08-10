@@ -24,14 +24,16 @@ A single Spring Boot process runs four scheduled jobs against a file-based H2 da
 cycle:
 
 1. **Scrape** — every 15 min, polls 41 company career sites using an 8-thread pool (3-min per-company
-   timeout). API scrapers (Greenhouse/Lever/Ashby/SmartRecruiters/OracleCloud) return descriptions
-   in the list response; Workday returns metadata only and defers descriptions to post-dedup.
+   timeout). **Greenhouse and Workday** fetch metadata only and defer descriptions to post-dedup;
+   **Lever / Ashby / SmartRecruiters / OracleCloud** bundle descriptions into the list response (no
+   lighter metadata-only call exists for them).
 2. **Pre-filter** — drops stale postings, non-California locations, non-SCM titles, and
    senior/software roles (see [Pre-Filters](#pre-filters)).
 3. **Dedup** — loads all known `company:externalId` keys into an in-memory set once per cycle for
    O(1) lookups (no per-job DB query).
-4. **Fetch descriptions** — Workday only, and only for the handful of unseen jobs that survived the
-   filters — so big boards don't issue thousands of detail requests (which triggered HTTP 429).
+4. **Fetch descriptions** — Greenhouse + Workday, and only for the handful of unseen jobs that
+   survived the filters — so big boards don't download every job's description up front (Greenhouse's
+   `content=true` list is ~10× larger; Workday would issue one detail request per job → HTTP 429).
 5. **Classify** — a three-stage pipeline assigns each posting a track: ENTRY_LEVEL / INTERNSHIP /
    UNSURE / OTHER (see [Classification Pipeline](#classification-pipeline)).
 6. **Persist** — batch `saveAll()` with batch-loaded existing rows (single query, no N+1). Gemini

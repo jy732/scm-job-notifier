@@ -12,13 +12,25 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
-/** Scraper for companies using the Greenhouse Boards API. */
+/**
+ * Scraper for companies using the Greenhouse Boards API.
+ *
+ * <p>Two-phase (see {@link JobScraper}): {@link #scrape} fetches metadata only (the board list
+ * without {@code content=true}), and {@link #fetchDescriptions} fetches the full description per
+ * job — but only for the unseen jobs that survived pre-filtering and dedup. This matters at scale:
+ * a board's {@code content=true} list can be ~10x larger (SpaceX: 24 MB vs 2.2 MB), so we avoid
+ * downloading descriptions for the ~99% of jobs that are dropped as non-CA / non-SCM.
+ */
 @Slf4j
 @Component
 public class GreenhouseScraper implements JobScraper {
 
-    private static final String API_URL =
-            "https://boards-api.greenhouse.io/v1/boards/{company}/jobs?content=true";
+    // Metadata only (no descriptions). content=true is deferred to fetchDescriptions().
+    private static final String LIST_URL =
+            "https://boards-api.greenhouse.io/v1/boards/{company}/jobs";
+    // Per-job endpoint — includes the full HTML "content" (description).
+    private static final String JOB_URL =
+            "https://boards-api.greenhouse.io/v1/boards/{company}/jobs/{id}";
 
     private final WebClient webClient;
     private final List<String> companies;
@@ -44,10 +56,9 @@ public class GreenhouseScraper implements JobScraper {
     /**
      * {@inheritDoc}
      *
-     * <p>Fetches all jobs from the Greenhouse Boards API in a single request ({@code
-     * /v1/boards/{company}/jobs?content=true}). No pagination needed — Greenhouse returns the full
-     * job list. The {@code content=true} param includes HTML job descriptions, which are stripped
-     * to plain text for signal extraction. On failure, returns an empty list.
+     * <p>Fetches the board's job list in a single request (no pagination — Greenhouse returns the
+     * full list). Metadata only; descriptions are deferred to {@link #fetchDescriptions}. On
+     * failure, returns an empty list.
      */
     @Override
     @SuppressWarnings("unchecked")
@@ -56,7 +67,7 @@ public class GreenhouseScraper implements JobScraper {
             Map<String, Object> response =
                     webClient
                             .get()
-                            .uri(API_URL, company)
+                            .uri(LIST_URL, company)
                             .retrieve()
                             .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
                             .block();
@@ -73,17 +84,45 @@ public class GreenhouseScraper implements JobScraper {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Fetches the full description for each (already pre-filtered + deduped) job via the per-job
+     * endpoint. A missing description is tolerated — the title filter and Gemini can still
+     * classify.
+     */
+    @Override
+    @SuppressWarnings("unchecked")
+    public void fetchDescriptions(List<JobPosting> jobs) {
+        for (JobPosting job : jobs) {
+            try {
+                Map<String, Object> detail =
+                        webClient
+                                .get()
+                                .uri(JOB_URL, job.getCompany(), job.getExternalId())
+                                .retrieve()
+                                .bodyToMono(
+                                        new ParameterizedTypeReference<Map<String, Object>>() {})
+                                .block();
+                if (detail != null && detail.get("content") != null) {
+                    job.setDescription(stripHtml(detail.get("content").toString()));
+                }
+            } catch (Exception e) {
+                log.debug(
+                        "Failed to fetch Greenhouse description for [{}] {}: {}",
+                        job.getCompany(),
+                        job.getExternalId(),
+                        e.getMessage());
+            }
+        }
+    }
+
     private JobPosting toJobPosting(String company, Map<String, Object> job) {
         String locationName = "";
         Object locationObj = job.get("location");
         if (locationObj instanceof Map<?, ?> locMap && locMap.get("name") != null) {
             locationName = locMap.get("name").toString();
         }
-
-        String content =
-                job.get("content") != null
-                        ? job.get("content").toString().replaceAll("<[^>]+>", "")
-                        : "";
 
         Instant postedDate = parseInstant(job.get("updated_at"));
 
@@ -93,7 +132,7 @@ public class GreenhouseScraper implements JobScraper {
                 .title(strOrEmpty(job.get("title")))
                 .url(strOrEmpty(job.get("absolute_url")))
                 .location(locationName)
-                .description(content)
+                .description("") // deferred to fetchDescriptions()
                 .postedDate(postedDate)
                 .detectedAt(Instant.now())
                 .build();
@@ -110,5 +149,9 @@ public class GreenhouseScraper implements JobScraper {
 
     private static String strOrEmpty(Object value) {
         return value != null ? value.toString() : "";
+    }
+
+    private static String stripHtml(String html) {
+        return html.replaceAll("<[^>]+>", " ").replaceAll("\\s+", " ").trim();
     }
 }
