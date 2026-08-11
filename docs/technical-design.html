@@ -468,7 +468,7 @@ OTHER  →  never emailed</code></pre>
   Target employers shift from tech-heavy to <strong>SCM-heavy, California-relevant</strong> firms. The list below is
   <strong>live in <code>application.properties</code> and verified end-to-end</strong> (Aug 2026): every slug/param was
   probed against the live ATS API and confirmed to return jobs, and a full poll runs all of them with zero scrape
-  failures. <strong>73 direct-config employers</strong> (53 Workday + 10 Greenhouse + 3 Lever + 2 Ashby + 2 SmartRecruiters
+  failures. <strong>77 direct-config employers</strong> (54 Workday + 12 Greenhouse + 4 Lever + 2 Ashby + 2 SmartRecruiters
   + 3 OracleCloud) plus 4 bespoke single-company scrapers (Amazon, Microsoft, Apple, Tesla). The employer set was
   grown via a strict "has a real California office" pass across tech / semiconductor / pharma / CPG / auto / aerospace /
   consulting / 3PL names; only those on a scrapeable ATS (Workday / Greenhouse / Lever / Ashby / SmartRecruiters /
@@ -477,7 +477,7 @@ OTHER  →  never emailed</code></pre>
 </p>
 
 <p class="note"><strong>Bold</strong> = surfaced ≥1 notifiable (entry-level / internship / unsure) CA SCM role in the Aug 2026 test polls; the rest scrape clean but haven't produced a matching opening yet.</p>
-<h4>Workday (53) — <code>subdomain</code> / <code>wd{instance}</code> / <code>site</code></h4>
+<h4>Workday (54) — <code>subdomain</code> / <code>wd{instance}</code> / <code>site</code></h4>
 <table>
   <tr><th>Segment</th><th>Employer</th><th>Location</th><th>Workday path</th></tr>
   <tr><td rowspan="7">Semiconductors / hardware</td><td>NVIDIA</td><td>Santa Clara</td><td>nvidia / wd5 / NVIDIAExternalCareerSite</td></tr>
@@ -527,15 +527,16 @@ OTHER  →  never emailed</code></pre>
   <tr><td>Baker Tilly</td><td>LA / Irvine / San Diego / SF</td><td>bakertilly / wd5 / BTCareers</td></tr>
   <tr><td>Trimble</td><td>Sunnyvale</td><td>trimble / wd1 / TrimbleCareers</td></tr>
   <tr><td>C.H. Robinson (3PL)</td><td>Orange / Carson / San Bernardino</td><td>chrobinson / wd5 / CHRobinson</td></tr>
-  <tr><td rowspan="6">Role-first discovery (Adzuna) — employers actually posting CA SCM roles</td><td><strong>Avantor</strong></td><td>CA distribution / life-sci</td><td>vwr / wd1 / avantorJobs</td></tr>
+  <tr><td rowspan="7">Role-first discovery (Adzuna) — employers actually posting CA SCM roles</td><td><strong>Avantor</strong></td><td>CA distribution / life-sci</td><td>vwr / wd1 / avantorJobs</td></tr>
   <tr><td><strong>Thermo Fisher</strong></td><td>Carlsbad / South SF</td><td>thermofisher / wd5 / ThermoFisherCareers</td></tr>
   <tr><td><strong>Motorola Solutions</strong></td><td>CA sites</td><td>motorolasolutions / wd5 / Careers</td></tr>
   <tr><td><strong>Teledyne</strong></td><td>Thousand Oaks / San Diego</td><td>flir / wd1 / flircareers</td></tr>
   <tr><td>Abbott</td><td>Alameda / Sylmar</td><td>abbott / wd5 / abbottcareers</td></tr>
   <tr><td>Blue Diamond Growers</td><td>Sacramento</td><td>bdgrowers / wd1 / External</td></tr>
+  <tr><td>World Market / Cost Plus (batch 2)</td><td>Alameda</td><td>worldmarket / wd5 / cost_plus_world_market_jobs</td></tr>
 </table>
 
-<h4>Greenhouse (10) — board slug</h4>
+<h4>Greenhouse (12) — board slug</h4>
 <table>
   <tr><th>Employer</th><th>Location</th><th>Slug</th></tr>
   <tr><td><strong>Flexport (3PL)</strong></td><td>San Francisco</td><td>flexport</td></tr>
@@ -548,14 +549,17 @@ OTHER  →  never emailed</code></pre>
   <tr><td><strong>Anduril ★</strong></td><td>Costa Mesa</td><td>andurilindustries</td></tr>
   <tr><td><strong>SpaceX ★</strong></td><td>Hawthorne</td><td>spacex</td></tr>
   <tr><td>Uber Freight (3PL)</td><td>San Francisco</td><td>uberfreight</td></tr>
+  <tr><td><strong>Alo Yoga</strong> (batch 2)</td><td>Beverly Hills</td><td>aloyoga</td></tr>
+  <tr><td><strong>Carvana</strong> (batch 2)</td><td>CA logistics ops</td><td>carvana</td></tr>
 </table>
 
-<h4>Lever (3), Ashby (2), SmartRecruiters (2), OracleCloud (3)</h4>
+<h4>Lever (4), Ashby (2), SmartRecruiters (2), OracleCloud (3)</h4>
 <table>
   <tr><th>Platform</th><th>Employer</th><th>Location</th><th>Identifier</th></tr>
-  <tr><td rowspan="3">Lever</td><td><strong>Zoox (AV)</strong></td><td>Foster City</td><td>zoox</td></tr>
+  <tr><td rowspan="4">Lever</td><td><strong>Zoox (AV)</strong></td><td>Foster City</td><td>zoox</td></tr>
   <tr><td>Veeva</td><td>Pleasanton</td><td>veeva</td></tr>
   <tr><td>Aera Technology (SCM software)</td><td>Mountain View</td><td>aeratechnology</td></tr>
+  <tr><td>Velo3D (metal AM, batch 2)</td><td>Fremont</td><td>velo3d</td></tr>
   <tr><td rowspan="2">Ashby</td><td>OpenAI</td><td>San Francisco</td><td>openai</td></tr>
   <tr><td>Snowflake</td><td>San Mateo</td><td>snowflake</td></tr>
   <tr><td rowspan="2">SmartRecruiters</td><td><strong>Western Digital</strong></td><td>San Jose</td><td>WesternDigital</td></tr>
