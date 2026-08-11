@@ -149,13 +149,16 @@ The daily 8 AM summary uses the same layout.
 67 config-driven companies across 6 ATS platforms (all verified against the live ATS API as of Aug
 2026), plus 4 bespoke single-company scrapers.
 
+**Bold** = surfaced ≥1 notifiable (entry-level / internship / unsure) CA SCM role in the Aug 2026 test
+polls; the rest scrape clean but haven't produced a matching opening yet.
+
 | Platform | Method | Count | Companies |
 |----------|--------|-------|-----------|
-| **Workday** | CXS JSON API | 47 | nvidia, intel, cisco, broadcom, appliedmaterials, marvell, kla, edwards, gilead, amgen, illumina, dexcom, resmed, stryker, genentech, chipotle, clorox, niagara, chevron (+ university site), sunrun, bloomenergy, levistrauss, deckers, skechers, northropgrumman, johnsonjohnson, target, mondelez, caterpillar, proctergamble, pfizer, cocacola, nissan, conagra, generalmills, kimberlyclark, walmart, toyota, pepsico, rtx, hp, bd, **pwc, bakertilly, trimble, chrobinson** |
-| **Greenhouse** | Boards JSON API | 10 | flexport, lucidmotors, nuro, samsara, doordashusa, instacart, waymo, andurilindustries, spacex, **uberfreight** |
-| **Lever** | Postings JSON API | 3 | zoox, veeva, **aeratechnology** |
+| **Workday** | CXS JSON API | 47 | nvidia, intel, cisco, broadcom, **appliedmaterials**, **marvell**, **kla**, edwards, gilead, amgen, illumina, dexcom, resmed, stryker, genentech, chipotle, clorox, **niagara**, chevron (+ university site), sunrun, **bloomenergy**, levistrauss, deckers, **skechers**, **northropgrumman**, **johnsonjohnson**, **target**, mondelez, caterpillar, proctergamble, pfizer, cocacola, nissan, conagra, generalmills, kimberlyclark, walmart, toyota, pepsico, **rtx**, hp, **bd**, pwc, bakertilly, trimble, chrobinson |
+| **Greenhouse** | Boards JSON API | 10 | **flexport**, lucidmotors, nuro, samsara, **doordashusa**, instacart, **waymo**, **andurilindustries**, **spacex**, uberfreight |
+| **Lever** | Postings JSON API | 3 | **zoox**, veeva, aeratechnology |
 | **Ashby** | Posting JSON API | 2 | openai, snowflake |
-| **SmartRecruiters** | Postings JSON API | 2 | WesternDigital, AbbVie |
+| **SmartRecruiters** | Postings JSON API | 2 | **WesternDigital**, AbbVie |
 | **OracleCloud** | Recruiting REST API | 3 | fortinet, honeywell, oracle |
 
 #### Deferred employers (known CA-office SCM targets, not yet scrapeable)
