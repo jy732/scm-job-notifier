@@ -468,8 +468,8 @@ OTHER  →  never emailed</code></pre>
   Target employers shift from tech-heavy to <strong>SCM-heavy, California-relevant</strong> firms. The list below is
   <strong>live in <code>application.properties</code> and verified end-to-end</strong> (Aug 2026): every slug/param was
   probed against the live ATS API and confirmed to return jobs, and a full poll runs all of them with zero scrape
-  failures. <strong>80 direct-config employers</strong> (56 Workday + 13 Greenhouse + 4 Lever + 2 Ashby + 2 SmartRecruiters
-  + 3 OracleCloud) plus 4 bespoke single-company scrapers (Amazon, Microsoft, Apple, Tesla). The employer set was
+  failures. <strong>81 direct-config employers</strong> (56 Workday + 13 Greenhouse + 4 Lever + 2 Ashby + 2 SmartRecruiters
+  + 3 OracleCloud + 1 SuccessFactors) plus 4 bespoke single-company scrapers (Amazon, Microsoft, Apple, Tesla). The employer set was
   grown via a strict "has a real California office" pass across tech / semiconductor / pharma / CPG / auto / aerospace /
   consulting / 3PL names; only those on a scrapeable ATS (Workday / Greenhouse / Lever / Ashby / SmartRecruiters /
   OracleCloud) are listed here — <code>application.properties</code> is the source of truth. Known CA-office SCM targets
@@ -570,7 +570,16 @@ OTHER  →  never emailed</code></pre>
   <tr><td rowspan="3">OracleCloud</td><td>Fortinet</td><td>Sunnyvale</td><td>edel / us2 / CX_2001</td></tr>
   <tr><td>Honeywell</td><td>Torrance (ISC)</td><td>ibqbjb / ocs / Honeywell</td></tr>
   <tr><td>Oracle</td><td>Redwood Shores</td><td>eeho / us2 / jobsearch</td></tr>
+  <tr><td>SuccessFactors</td><td>SAP (validation tenant)</td><td>Palo Alto / Newport Beach</td><td>jobs.sap.com</td></tr>
 </table>
+<p>
+  <strong>SuccessFactors adapter:</strong> SF has no public JSON API (OData is per-tenant OAuth-gated), so this scrapes the
+  Career Site Builder <code>tile-search-results</code> HTML — tenant-HTML, not a uniform API. Bounded by SCM keyword queries,
+  de-duped by job id; location recovered from the URL slug, description fetched best-effort from the detail page (two-phase).
+  Validated on <code>jobs.sap.com</code> (260 jobs → 3 CA → 0 SCM-relevant: SAP's CA roles are dev, so ~0 yield — a validation
+  tenant). The valuable SF targets (Williams-Sonoma, Ross, Nestlé, Colgate) sit on non-CSB / JS-loaded / migrated hosts and need
+  per-tenant reverse-engineering; they remain in <em>Deferred</em>.
+</p>
 <p>
   <strong>Bespoke single-company scrapers</strong> (Amazon, Apple, Tesla, Google, Microsoft, Meta, TikTok, Netflix) hire CA
   SCM / operations but are <strong>deferred</strong> — they hardcode SWE-style queries and need per-scraper rework.

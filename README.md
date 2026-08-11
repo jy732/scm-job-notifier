@@ -13,8 +13,8 @@ SCM track ENTRY_LEVEL / INTERNSHIP / UNSURE), **location** (US → California on
 > 📨 **Receiving the alert emails and not an engineer?** See the plain-language guide:
 > [中文使用说明 (Chinese guide for email recipients)](README.zh-CN.md).
 
-**Status:** implemented, building, and verified end-to-end. A full poll runs all 84 companies (80
-config-driven across 6 ATS platforms + 4 bespoke) in ~5 min.
+**Status:** implemented, building, and verified end-to-end. A full poll runs all 85 companies (81
+config-driven across 7 ATS platforms + 4 bespoke) in ~5 min.
 
 ---
 
@@ -23,7 +23,7 @@ config-driven across 6 ATS platforms + 4 bespoke) in ~5 min.
 A single Spring Boot process runs four scheduled jobs against a file-based H2 database. The main poll
 cycle:
 
-1. **Scrape** — every 15 min, polls 80 config-driven companies (6 ATS platforms) plus 4 bespoke
+1. **Scrape** — every 15 min, polls 81 config-driven companies (7 ATS platforms) plus 4 bespoke
    single-company scrapers (Amazon, Microsoft, Apple, Tesla) using an 8-thread pool (3-min
    per-company timeout). **Greenhouse and Workday** fetch metadata only and defer descriptions to post-dedup;
    **Lever / Ashby / SmartRecruiters / OracleCloud** bundle descriptions into the list response (no
@@ -146,7 +146,7 @@ The daily 8 AM summary uses the same layout.
 
 ## Supported Platforms & Companies
 
-80 config-driven companies across 6 ATS platforms (all verified against the live ATS API as of Aug
+81 config-driven companies across 7 ATS platforms (all verified against the live ATS API as of Aug
 2026), plus 4 bespoke single-company scrapers.
 
 **Bold** = surfaced ≥1 notifiable (entry-level / internship / unsure) CA SCM role in the Aug 2026 test
@@ -161,6 +161,14 @@ polls; the rest scrape clean but haven't produced a matching opening yet. The tr
 | **Ashby** | Posting JSON API | 2 | openai, snowflake |
 | **SmartRecruiters** | Postings JSON API | 2 | **WesternDigital**, AbbVie |
 | **OracleCloud** | Recruiting REST API | 3 | fortinet, honeywell, oracle |
+| **SuccessFactors** | CSB tile-search HTML | 1 | sap |
+
+> **SuccessFactors note:** SF has no public JSON API (OData is per-tenant OAuth-gated). This adapter
+> scrapes the Career Site Builder `tile-search-results` HTML — tenant-HTML, not a uniform API. It's
+> validated on `jobs.sap.com` (SAP is a CA employer, but its CA roles are dev/enterprise-software, so
+> it yields ~0 CA-SCM and is really a validation tenant). The high-value SF targets (Williams-Sonoma,
+> Ross, Nestlé, Colgate) aren't reachable at their obvious hosts (non-CSB, JS-loaded, or migrated ATS)
+> and need per-tenant onboarding — the adapter exists, but each host must be reverse-engineered.
 
 #### Deferred employers (known CA-office SCM targets, not yet scrapeable)
 
@@ -171,7 +179,7 @@ unlock a whole batch:
 
 | Blocker | Deferred companies | Unlock |
 |---------|--------------------|--------|
-| **SAP SuccessFactors** | SAP, Bayer, Schneider Electric, Nestlé, Colgate-Palmolive, ExxonMobil, Williams-Sonoma, Ross Stores | SuccessFactors adapter |
+| **SAP SuccessFactors** | Bayer, Nestlé, Colgate-Palmolive, ExxonMobil, Williams-Sonoma, Ross Stores (Schneider → migrated to Jibe) | adapter built (validated on SAP); each tenant's CSB host must be reverse-engineered — most aren't at obvious hosts |
 | **Phenom** | bio-rad, Mattel, Intuitive Surgical, The Wonderful Company, Rivian, L'Oréal, Cummins | Phenom adapter |
 | **Eightfold** | Lam Research, Kroger (Ralphs) | Eightfold adapter |
 | **iCIMS** | AIT Worldwide Logistics | iCIMS adapter (config hooks already exist) |

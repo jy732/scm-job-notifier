@@ -2,6 +2,7 @@ package com.github.jingyangyu.scmjobnotifier;
 
 import com.github.jingyangyu.scmjobnotifier.config.IcimsProperties;
 import com.github.jingyangyu.scmjobnotifier.config.OracleCloudProperties;
+import com.github.jingyangyu.scmjobnotifier.config.SuccessFactorsProperties;
 import com.github.jingyangyu.scmjobnotifier.config.WorkdayProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -20,7 +21,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableConfigurationProperties({
     WorkdayProperties.class,
     IcimsProperties.class,
-    OracleCloudProperties.class
+    OracleCloudProperties.class,
+    SuccessFactorsProperties.class
 })
 public class ScmJobNotifierApplication {
 
