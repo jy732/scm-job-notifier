@@ -581,13 +581,44 @@ OTHER  →  never emailed</code></pre>
   tenant that blocks the CXS API. <strong>Deferred, not rejected</strong> — one new adapter unlocks a whole batch.
 </p>
 <table>
-  <tr><th>Blocker</th><th>Deferred companies</th><th>Unlock</th></tr>
-  <tr><td>SAP SuccessFactors</td><td>SAP, Bayer, Schneider Electric, Nestlé, Colgate-Palmolive, ExxonMobil, Williams-Sonoma, Ross Stores</td><td>SuccessFactors adapter</td></tr>
-  <tr><td>Phenom</td><td>Bio-Rad, Mattel, Intuitive Surgical, The Wonderful Company, Rivian, L'Oréal, Cummins</td><td>Phenom adapter</td></tr>
-  <tr><td>Eightfold</td><td>Lam Research, Kroger (Ralphs)</td><td>Eightfold adapter</td></tr>
-  <tr><td>iCIMS</td><td>AIT Worldwide Logistics</td><td>iCIMS adapter (config hooks already stubbed)</td></tr>
-  <tr><td>Custom / in-house site</td><td>Boeing, Lockheed Martin, TSMC, Siemens, Honda, IBM, Verizon, Accenture, Bain, Deloitte (US), KPMG, GEODIS, Expeditors, Keysight, Coupa</td><td>bespoke scraper each</td></tr>
-  <tr><td>Workday but unreachable</td><td>Qualcomm (auth-gated), Seagate + Dell (custom domain), Eli Lilly (tenant bot-blocks CXS)</td><td>—</td></tr>
+  <tr><th>ATS / blocker</th><th>Company</th><th>Sector</th><th>Unlock</th></tr>
+  <tr><td rowspan="8">SAP SuccessFactors</td><td>SAP</td><td>Enterprise / SCM software</td><td rowspan="8">SuccessFactors adapter</td></tr>
+  <tr><td>Bayer</td><td>Pharma / life sciences</td></tr>
+  <tr><td>Schneider Electric</td><td>Industrial / SCM</td></tr>
+  <tr><td>Nestlé</td><td>CPG / food &amp; bev</td></tr>
+  <tr><td>Colgate-Palmolive</td><td>CPG</td></tr>
+  <tr><td>ExxonMobil</td><td>Energy</td></tr>
+  <tr><td>Williams-Sonoma</td><td>Retail</td></tr>
+  <tr><td>Ross Stores</td><td>Retail</td></tr>
+  <tr><td rowspan="7">Phenom</td><td>Bio-Rad</td><td>Life sciences</td><td rowspan="7">Phenom adapter</td></tr>
+  <tr><td>Mattel</td><td>CPG / toys</td></tr>
+  <tr><td>Intuitive Surgical</td><td>MedTech</td></tr>
+  <tr><td>The Wonderful Company</td><td>CPG / food &amp; bev</td></tr>
+  <tr><td>Rivian</td><td>Automotive / EV</td></tr>
+  <tr><td>L'Oréal</td><td>CPG / beauty</td></tr>
+  <tr><td>Cummins</td><td>Industrial</td></tr>
+  <tr><td rowspan="2">Eightfold</td><td>Lam Research</td><td>Semiconductor</td><td rowspan="2">Eightfold adapter</td></tr>
+  <tr><td>Kroger (Ralphs)</td><td>Retail / grocery</td></tr>
+  <tr><td>iCIMS</td><td>AIT Worldwide Logistics</td><td>3PL / logistics</td><td>iCIMS adapter (config hooks stubbed)</td></tr>
+  <tr><td rowspan="15">Custom / in-house site</td><td>Boeing</td><td>Aerospace / defense</td><td rowspan="15">bespoke scraper each</td></tr>
+  <tr><td>Lockheed Martin</td><td>Aerospace / defense</td></tr>
+  <tr><td>TSMC</td><td>Semiconductor</td></tr>
+  <tr><td>Siemens</td><td>Industrial</td></tr>
+  <tr><td>Honda</td><td>Automotive</td></tr>
+  <tr><td>IBM</td><td>Tech / consulting</td></tr>
+  <tr><td>Verizon</td><td>Telecom</td></tr>
+  <tr><td>Accenture</td><td>Consulting</td></tr>
+  <tr><td>Bain &amp; Company</td><td>Consulting</td></tr>
+  <tr><td>Deloitte (US)</td><td>Consulting</td></tr>
+  <tr><td>KPMG</td><td>Consulting</td></tr>
+  <tr><td>GEODIS</td><td>3PL / logistics</td></tr>
+  <tr><td>Expeditors</td><td>3PL / logistics</td></tr>
+  <tr><td>Keysight</td><td>Test &amp; measurement</td></tr>
+  <tr><td>Coupa</td><td>Procurement / SCM software</td></tr>
+  <tr><td rowspan="4">Workday (unreachable)</td><td>Qualcomm</td><td>Semiconductor</td><td>tenant auth-gated</td></tr>
+  <tr><td>Seagate</td><td>Storage hardware</td><td>moved to custom domain</td></tr>
+  <tr><td>Dell</td><td>Tech / hardware</td><td>moved to custom domain</td></tr>
+  <tr><td>Eli Lilly</td><td>Pharma</td><td>tenant bot-blocks CXS</td></tr>
 </table>
 
 <h2 id="schedule">9. Scheduled Jobs &amp; Config</h2>
