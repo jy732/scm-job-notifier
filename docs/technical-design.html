@@ -468,14 +468,15 @@ OTHER  →  never emailed</code></pre>
   Target employers shift from tech-heavy to <strong>SCM-heavy, California-relevant</strong> firms. The list below is
   <strong>live in <code>application.properties</code> and verified end-to-end</strong> (Aug 2026): every slug/param was
   probed against the live ATS API and confirmed to return jobs, and a full poll runs all of them with zero scrape
-  failures. <strong>61 direct-config employers</strong> (43 Workday + 9 Greenhouse + 2 Lever + 2 Ashby + 2 SmartRecruiters
+  failures. <strong>67 direct-config employers</strong> (47 Workday + 10 Greenhouse + 3 Lever + 2 Ashby + 2 SmartRecruiters
   + 3 OracleCloud) plus 4 bespoke single-company scrapers (Amazon, Microsoft, Apple, Tesla). The employer set was
   grown via a strict "has a real California office" pass across tech / semiconductor / pharma / CPG / auto / aerospace /
   consulting / 3PL names; only those on a scrapeable ATS (Workday / Greenhouse / Lever / Ashby / SmartRecruiters /
-  OracleCloud) are listed here — <code>application.properties</code> is the source of truth.
+  OracleCloud) are listed here — <code>application.properties</code> is the source of truth. Known CA-office SCM targets
+  on an unsupported ATS are catalogued under <em>Deferred employers</em> below.
 </p>
 
-<h4>Workday (43) — <code>subdomain</code> / <code>wd{instance}</code> / <code>site</code></h4>
+<h4>Workday (47) — <code>subdomain</code> / <code>wd{instance}</code> / <code>site</code></h4>
 <table>
   <tr><th>Segment</th><th>Employer</th><th>Location</th><th>Workday path</th></tr>
   <tr><td rowspan="7">Semiconductors / hardware</td><td>NVIDIA</td><td>Santa Clara</td><td>nvidia / wd5 / NVIDIAExternalCareerSite</td></tr>
@@ -521,9 +522,13 @@ OTHER  →  never emailed</code></pre>
   <tr><td>RTX / Raytheon</td><td>Goleta / El Segundo</td><td>globalhr / wd5 / REC_RTX_Ext_Gateway</td></tr>
   <tr><td>HP Inc.</td><td>Palo Alto</td><td>hp / wd5 / ExternalCareerSite</td></tr>
   <tr><td>BD / Becton Dickinson</td><td>San Diego / Milpitas</td><td>bdx / wd1 / EXTERNAL_CAREER_SITE_USA</td></tr>
+  <tr><td rowspan="4">Consulting / SCM-tech / 3PL — CA offices</td><td>PwC</td><td>SF / San Jose / LA</td><td>pwc / wd3 / US_Experienced_Careers</td></tr>
+  <tr><td>Baker Tilly</td><td>LA / Irvine / San Diego / SF</td><td>bakertilly / wd5 / BTCareers</td></tr>
+  <tr><td>Trimble</td><td>Sunnyvale</td><td>trimble / wd1 / TrimbleCareers</td></tr>
+  <tr><td>C.H. Robinson (3PL)</td><td>Orange / Carson / San Bernardino</td><td>chrobinson / wd5 / CHRobinson</td></tr>
 </table>
 
-<h4>Greenhouse (9) — board slug</h4>
+<h4>Greenhouse (10) — board slug</h4>
 <table>
   <tr><th>Employer</th><th>Location</th><th>Slug</th></tr>
   <tr><td>Flexport (3PL)</td><td>San Francisco</td><td>flexport</td></tr>
@@ -535,13 +540,15 @@ OTHER  →  never emailed</code></pre>
   <tr><td>Waymo</td><td>Mountain View</td><td>waymo</td></tr>
   <tr><td>Anduril ★</td><td>Costa Mesa</td><td>andurilindustries</td></tr>
   <tr><td>SpaceX ★</td><td>Hawthorne</td><td>spacex</td></tr>
+  <tr><td>Uber Freight (3PL)</td><td>San Francisco</td><td>uberfreight</td></tr>
 </table>
 
-<h4>Lever (2), Ashby (2), SmartRecruiters (2), OracleCloud (3)</h4>
+<h4>Lever (3), Ashby (2), SmartRecruiters (2), OracleCloud (3)</h4>
 <table>
   <tr><th>Platform</th><th>Employer</th><th>Location</th><th>Identifier</th></tr>
-  <tr><td rowspan="2">Lever</td><td>Zoox (AV)</td><td>Foster City</td><td>zoox</td></tr>
+  <tr><td rowspan="3">Lever</td><td>Zoox (AV)</td><td>Foster City</td><td>zoox</td></tr>
   <tr><td>Veeva</td><td>Pleasanton</td><td>veeva</td></tr>
+  <tr><td>Aera Technology (SCM software)</td><td>Mountain View</td><td>aeratechnology</td></tr>
   <tr><td rowspan="2">Ashby</td><td>OpenAI</td><td>San Francisco</td><td>openai</td></tr>
   <tr><td>Snowflake</td><td>San Mateo</td><td>snowflake</td></tr>
   <tr><td rowspan="2">SmartRecruiters</td><td>Western Digital</td><td>San Jose</td><td>WesternDigital</td></tr>
@@ -563,16 +570,25 @@ OTHER  →  never emailed</code></pre>
 </div>
 
 <div class="decision">
-  <strong>Dropped — not reachable via a supported ATS:</strong> Qualcomm (Workday moved to an auth-gated custom domain),
-  Seagate (Workday on custom domain <code>seagatecareers.com</code>), Bio-Rad (Phenom).
-  <strong>Also skipped (unsupported ATS):</strong> Williams-Sonoma, Ross Stores (SuccessFactors / NAS) · Mattel, Intuitive Surgical,
-  The Wonderful Company, Rivian (Phenom) · Keysight (custom) · Lam Research (Eightfold — a NetflixScraper-style adapter could be added later).
-  <strong>Skipped from the strict CA-office expansion pass:</strong> Boeing, Lockheed Martin, TSMC, Siemens, Honda, IBM, Verizon, SAP, Bayer, Schneider Electric
-  (custom sites or SAP SuccessFactors — no scrapeable API) · Eli&nbsp;Lilly (Workday tenant bot-blocks the CXS endpoint).
-  <br><strong>Yield note:</strong> the national SCM giants (CPG / pharma / auto / retail / aerospace) scrape thousands of reqs but their
-  California + entry-level + SCM-titled intersection is small (often 0–3 notifiable/poll); the bulk of alerts come from CA-headquartered,
-  SCM-heavy employers (Anduril, SpaceX, Niagara, Northrop, Applied Materials).
+  <strong>Yield note:</strong> the national SCM giants (CPG / pharma / auto / retail / aerospace) and the consulting / 3PL firms scrape
+  thousands of reqs but their California + entry-level + SCM-titled intersection is small (often 0–3 notifiable/poll, frequently 0); the bulk
+  of alerts come from CA-headquartered, SCM-heavy employers (Anduril, SpaceX, Niagara, Northrop, Applied Materials).
 </div>
+
+<h4>Deferred employers (known CA-office SCM targets, not yet scrapeable)</h4>
+<p>
+  Surfaced by the same strict "has a real California office" pass (Tiers 1–4) but sitting on an ATS we have no adapter for, or on a Workday
+  tenant that blocks the CXS API. <strong>Deferred, not rejected</strong> — one new adapter unlocks a whole batch.
+</p>
+<table>
+  <tr><th>Blocker</th><th>Deferred companies</th><th>Unlock</th></tr>
+  <tr><td>SAP SuccessFactors</td><td>SAP, Bayer, Schneider Electric, Nestlé, Colgate-Palmolive, ExxonMobil, Williams-Sonoma, Ross Stores</td><td>SuccessFactors adapter</td></tr>
+  <tr><td>Phenom</td><td>Bio-Rad, Mattel, Intuitive Surgical, The Wonderful Company, Rivian, L'Oréal, Cummins</td><td>Phenom adapter</td></tr>
+  <tr><td>Eightfold</td><td>Lam Research, Kroger (Ralphs)</td><td>Eightfold adapter</td></tr>
+  <tr><td>iCIMS</td><td>AIT Worldwide Logistics</td><td>iCIMS adapter (config hooks already stubbed)</td></tr>
+  <tr><td>Custom / in-house site</td><td>Boeing, Lockheed Martin, TSMC, Siemens, Honda, IBM, Verizon, Accenture, Bain, Deloitte (US), KPMG, GEODIS, Expeditors, Keysight, Coupa</td><td>bespoke scraper each</td></tr>
+  <tr><td>Workday but unreachable</td><td>Qualcomm (auth-gated), Seagate + Dell (custom domain), Eli Lilly (tenant bot-blocks CXS)</td><td>—</td></tr>
+</table>
 
 <h2 id="schedule">9. Scheduled Jobs &amp; Config</h2>
 <p>All schedules carried over from SWE unchanged (already set in the skeleton's <code>application.properties</code>):</p>
