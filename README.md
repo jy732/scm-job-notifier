@@ -13,8 +13,8 @@ SCM track ENTRY_LEVEL / INTERNSHIP / UNSURE), **location** (US → California on
 > 📨 **Receiving the alert emails and not an engineer?** See the plain-language guide:
 > [中文使用说明 (Chinese guide for email recipients)](README.zh-CN.md).
 
-**Status:** implemented, building, and verified end-to-end. A full poll runs all 41 companies across
-6 scrapers in ~150s with zero scrape failures.
+**Status:** implemented, building, and verified end-to-end. A full poll runs all 65 companies (61
+config-driven across 6 ATS platforms + 4 bespoke) in ~4–5 min with zero scrape failures.
 
 ---
 
@@ -23,7 +23,7 @@ SCM track ENTRY_LEVEL / INTERNSHIP / UNSURE), **location** (US → California on
 A single Spring Boot process runs four scheduled jobs against a file-based H2 database. The main poll
 cycle:
 
-1. **Scrape** — every 15 min, polls 41 config-driven companies (6 ATS platforms) plus 4 bespoke
+1. **Scrape** — every 15 min, polls 61 config-driven companies (6 ATS platforms) plus 4 bespoke
    single-company scrapers (Amazon, Microsoft, Apple, Tesla) using an 8-thread pool (3-min
    per-company timeout). **Greenhouse and Workday** fetch metadata only and defer descriptions to post-dedup;
    **Lever / Ashby / SmartRecruiters / OracleCloud** bundle descriptions into the list response (no
@@ -146,20 +146,22 @@ The daily 8 AM summary uses the same layout.
 
 ## Supported Platforms & Companies
 
-56 config-driven companies across 6 ATS platforms (all verified against the live ATS API as of Aug
+61 config-driven companies across 6 ATS platforms (all verified against the live ATS API as of Aug
 2026), plus 4 bespoke single-company scrapers.
 
 | Platform | Method | Count | Companies |
 |----------|--------|-------|-----------|
-| **Workday** | CXS JSON API | 40 | nvidia, intel, cisco, broadcom, appliedmaterials, marvell, kla, edwards, gilead, amgen, illumina, dexcom, resmed, stryker, genentech, chipotle, clorox, niagara, chevron (+ university site), sunrun, bloomenergy, levistrauss, deckers, skechers, northropgrumman, **johnsonjohnson, target, mondelez, caterpillar, proctergamble, pfizer, cocacola, nissan, conagra, generalmills, kimberlyclark, walmart, toyota, pepsico** |
+| **Workday** | CXS JSON API | 43 | nvidia, intel, cisco, broadcom, appliedmaterials, marvell, kla, edwards, gilead, amgen, illumina, dexcom, resmed, stryker, genentech, chipotle, clorox, niagara, chevron (+ university site), sunrun, bloomenergy, levistrauss, deckers, skechers, northropgrumman, johnsonjohnson, target, mondelez, caterpillar, proctergamble, pfizer, cocacola, nissan, conagra, generalmills, kimberlyclark, walmart, toyota, pepsico, **rtx, hp, bd** |
 | **Greenhouse** | Boards JSON API | 9 | flexport, lucidmotors, nuro, samsara, doordashusa, instacart, waymo, andurilindustries, spacex |
 | **Lever** | Postings JSON API | 2 | zoox, veeva |
 | **Ashby** | Posting JSON API | 2 | openai, snowflake |
-| **SmartRecruiters** | Postings JSON API | 1 | WesternDigital |
-| **OracleCloud** | Recruiting REST API | 2 | fortinet, honeywell |
+| **SmartRecruiters** | Postings JSON API | 2 | WesternDigital, **AbbVie** |
+| **OracleCloud** | Recruiting REST API | 3 | fortinet, honeywell, **oracle** |
 
 **Dropped** (no supported ATS): `qualcomm` (Workday moved/auth-gated), `seagate` (Workday on custom
-domain), `bio-rad` (Phenom).
+domain), `bio-rad` (Phenom). Also skipped from the strict "CA-office" expansion pass: Boeing /
+Lockheed / TSMC / Siemens / Honda (custom or SuccessFactors, no scrapeable API), `lilly` (Workday
+tenant bot-blocks the CXS endpoint).
 
 ### Single-company scrapers (bespoke)
 

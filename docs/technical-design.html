@@ -468,11 +468,14 @@ OTHER  →  never emailed</code></pre>
   Target employers shift from tech-heavy to <strong>SCM-heavy, California-relevant</strong> firms. The list below is
   <strong>live in <code>application.properties</code> and verified end-to-end</strong> (Aug 2026): every slug/param was
   probed against the live ATS API and confirmed to return jobs, and a full poll runs all of them with zero scrape
-  failures. <strong>41 direct-config employers</strong> (26 Workday + 9 Greenhouse + 2 Lever + 2 Ashby + 1 SmartRecruiters
-  + 1 OracleCloud) plus the bespoke single-company scrapers (deferred; not yet ported from SWE).
+  failures. <strong>61 direct-config employers</strong> (43 Workday + 9 Greenhouse + 2 Lever + 2 Ashby + 2 SmartRecruiters
+  + 3 OracleCloud) plus 4 bespoke single-company scrapers (Amazon, Microsoft, Apple, Tesla). The employer set was
+  grown via a strict "has a real California office" pass across tech / semiconductor / pharma / CPG / auto / aerospace /
+  consulting / 3PL names; only those on a scrapeable ATS (Workday / Greenhouse / Lever / Ashby / SmartRecruiters /
+  OracleCloud) are listed here — <code>application.properties</code> is the source of truth.
 </p>
 
-<h4>Workday (26) — <code>subdomain</code> / <code>wd{instance}</code> / <code>site</code></h4>
+<h4>Workday (43) — <code>subdomain</code> / <code>wd{instance}</code> / <code>site</code></h4>
 <table>
   <tr><th>Segment</th><th>Employer</th><th>Location</th><th>Workday path</th></tr>
   <tr><td rowspan="7">Semiconductors / hardware</td><td>NVIDIA</td><td>Santa Clara</td><td>nvidia / wd5 / NVIDIAExternalCareerSite</td></tr>
@@ -501,6 +504,23 @@ OTHER  →  never emailed</code></pre>
   <tr><td>Deckers (UGG/HOKA)</td><td>Goleta</td><td>deckers / wd5 / Deckers</td></tr>
   <tr><td>Skechers</td><td>Manhattan Beach</td><td>skechers / wd5 / One-career-site</td></tr>
   <tr><td rowspan="1">Aerospace / defense</td><td>Northrop Grumman ★</td><td>Redondo Beach</td><td>ngc / wd1 / Northrop_Grumman_External_Site</td></tr>
+  <tr><td rowspan="17">High-signal SCM expansion (CPG / pharma / retail / auto / aerospace / tech) — all with CA offices</td><td>Johnson &amp; Johnson</td><td>Irvine / Santa Clara</td><td>jj / wd5 / JJ</td></tr>
+  <tr><td>Target</td><td>CA distribution / stores</td><td>target / wd5 / targetcareers</td></tr>
+  <tr><td>Mondelez</td><td>CA sales / ops</td><td>mdlz / wd3 / External</td></tr>
+  <tr><td>Caterpillar (Solar Turbines)</td><td>San Diego</td><td>cat / wd5 / CaterpillarCareers</td></tr>
+  <tr><td>Procter &amp; Gamble</td><td>Sacramento / Oxnard</td><td>pg / wd5 / 1000</td></tr>
+  <tr><td>Pfizer</td><td>La Jolla / San Diego</td><td>pfizer / wd1 / PfizerCareers</td></tr>
+  <tr><td>Coca-Cola</td><td>CA bottling / ops</td><td>coke / wd1 / coca-cola-careers</td></tr>
+  <tr><td>Nissan</td><td>Santa Clara</td><td>alliance / wd3 / nissanjobs</td></tr>
+  <tr><td>Conagra Brands</td><td>Oakdale</td><td>conagrabrands / wd1 / Careers_US</td></tr>
+  <tr><td>General Mills</td><td>Chula Vista / SF</td><td>genmills / wd1 / GMI_External_Careers</td></tr>
+  <tr><td>Kimberly-Clark</td><td>CA sales / ops</td><td>kimberlyclark / wd1 / GLOBAL</td></tr>
+  <tr><td>Walmart (Global Tech)</td><td>Sunnyvale</td><td>walmart / wd504 / WalmartExternal</td></tr>
+  <tr><td>Toyota (TMNA)</td><td>Torrance</td><td>toyota / wd503 / TMNA</td></tr>
+  <tr><td>PepsiCo (Beverages)</td><td>Torrance</td><td>pbv / wd503 / external</td></tr>
+  <tr><td>RTX / Raytheon</td><td>Goleta / El Segundo</td><td>globalhr / wd5 / REC_RTX_Ext_Gateway</td></tr>
+  <tr><td>HP Inc.</td><td>Palo Alto</td><td>hp / wd5 / ExternalCareerSite</td></tr>
+  <tr><td>BD / Becton Dickinson</td><td>San Diego / Milpitas</td><td>bdx / wd1 / EXTERNAL_CAREER_SITE_USA</td></tr>
 </table>
 
 <h4>Greenhouse (9) — board slug</h4>
@@ -517,15 +537,18 @@ OTHER  →  never emailed</code></pre>
   <tr><td>SpaceX ★</td><td>Hawthorne</td><td>spacex</td></tr>
 </table>
 
-<h4>Lever (2), Ashby (2), SmartRecruiters (1), OracleCloud (1)</h4>
+<h4>Lever (2), Ashby (2), SmartRecruiters (2), OracleCloud (3)</h4>
 <table>
   <tr><th>Platform</th><th>Employer</th><th>Location</th><th>Identifier</th></tr>
   <tr><td rowspan="2">Lever</td><td>Zoox (AV)</td><td>Foster City</td><td>zoox</td></tr>
   <tr><td>Veeva</td><td>Pleasanton</td><td>veeva</td></tr>
   <tr><td rowspan="2">Ashby</td><td>OpenAI</td><td>San Francisco</td><td>openai</td></tr>
   <tr><td>Snowflake</td><td>San Mateo</td><td>snowflake</td></tr>
-  <tr><td>SmartRecruiters</td><td>Western Digital</td><td>San Jose</td><td>WesternDigital</td></tr>
-  <tr><td>OracleCloud</td><td>Fortinet</td><td>Sunnyvale</td><td>edel / us2 / CX_2001</td></tr>
+  <tr><td rowspan="2">SmartRecruiters</td><td>Western Digital</td><td>San Jose</td><td>WesternDigital</td></tr>
+  <tr><td>AbbVie</td><td>South San Francisco</td><td>AbbVie</td></tr>
+  <tr><td rowspan="3">OracleCloud</td><td>Fortinet</td><td>Sunnyvale</td><td>edel / us2 / CX_2001</td></tr>
+  <tr><td>Honeywell</td><td>Torrance (ISC)</td><td>ibqbjb / ocs / Honeywell</td></tr>
+  <tr><td>Oracle</td><td>Redwood Shores</td><td>eeho / us2 / jobsearch</td></tr>
 </table>
 <p>
   <strong>Bespoke single-company scrapers</strong> (Amazon, Apple, Tesla, Google, Microsoft, Meta, TikTok, Netflix) hire CA
@@ -544,6 +567,11 @@ OTHER  →  never emailed</code></pre>
   Seagate (Workday on custom domain <code>seagatecareers.com</code>), Bio-Rad (Phenom).
   <strong>Also skipped (unsupported ATS):</strong> Williams-Sonoma, Ross Stores (SuccessFactors / NAS) · Mattel, Intuitive Surgical,
   The Wonderful Company, Rivian (Phenom) · Keysight (custom) · Lam Research (Eightfold — a NetflixScraper-style adapter could be added later).
+  <strong>Skipped from the strict CA-office expansion pass:</strong> Boeing, Lockheed Martin, TSMC, Siemens, Honda, IBM, Verizon, SAP, Bayer, Schneider Electric
+  (custom sites or SAP SuccessFactors — no scrapeable API) · Eli&nbsp;Lilly (Workday tenant bot-blocks the CXS endpoint).
+  <br><strong>Yield note:</strong> the national SCM giants (CPG / pharma / auto / retail / aerospace) scrape thousands of reqs but their
+  California + entry-level + SCM-titled intersection is small (often 0–3 notifiable/poll); the bulk of alerts come from CA-headquartered,
+  SCM-heavy employers (Anduril, SpaceX, Niagara, Northrop, Applied Materials).
 </div>
 
 <h2 id="schedule">9. Scheduled Jobs &amp; Config</h2>
