@@ -13,7 +13,7 @@ SCM track ENTRY_LEVEL / INTERNSHIP / UNSURE), **location** (US → California on
 > 📨 **Receiving the alert emails and not an engineer?** See the plain-language guide:
 > [中文使用说明 (Chinese guide for email recipients)](README.zh-CN.md).
 
-**Status:** implemented, building, and verified end-to-end. A full poll runs all 81 companies (77
+**Status:** implemented, building, and verified end-to-end. A full poll runs all 84 companies (80
 config-driven across 6 ATS platforms + 4 bespoke) in ~5 min.
 
 ---
@@ -23,7 +23,7 @@ config-driven across 6 ATS platforms + 4 bespoke) in ~5 min.
 A single Spring Boot process runs four scheduled jobs against a file-based H2 database. The main poll
 cycle:
 
-1. **Scrape** — every 15 min, polls 77 config-driven companies (6 ATS platforms) plus 4 bespoke
+1. **Scrape** — every 15 min, polls 80 config-driven companies (6 ATS platforms) plus 4 bespoke
    single-company scrapers (Amazon, Microsoft, Apple, Tesla) using an 8-thread pool (3-min
    per-company timeout). **Greenhouse and Workday** fetch metadata only and defer descriptions to post-dedup;
    **Lever / Ashby / SmartRecruiters / OracleCloud** bundle descriptions into the list response (no
@@ -146,7 +146,7 @@ The daily 8 AM summary uses the same layout.
 
 ## Supported Platforms & Companies
 
-77 config-driven companies across 6 ATS platforms (all verified against the live ATS API as of Aug
+80 config-driven companies across 6 ATS platforms (all verified against the live ATS API as of Aug
 2026), plus 4 bespoke single-company scrapers.
 
 **Bold** = surfaced ≥1 notifiable (entry-level / internship / unsure) CA SCM role in the Aug 2026 test
@@ -155,8 +155,8 @@ polls; the rest scrape clean but haven't produced a matching opening yet. The tr
 
 | Platform | Method | Count | Companies |
 |----------|--------|-------|-----------|
-| **Workday** | CXS JSON API | 54 | nvidia, intel, cisco, broadcom, **appliedmaterials**, **marvell**, **kla**, edwards, gilead, amgen, illumina, dexcom, resmed, stryker, genentech, chipotle, clorox, **niagara**, chevron (+ university site), sunrun, **bloomenergy**, levistrauss, deckers, **skechers**, **northropgrumman**, **johnsonjohnson**, **target**, mondelez, caterpillar, proctergamble, pfizer, cocacola, nissan, conagra, generalmills, kimberlyclark, walmart, toyota, pepsico, **rtx**, hp, **bd**, pwc, bakertilly, trimble, chrobinson, abbott, **thermofisher**, **motorolasolutions**, **avantor**, **teledyne**, bluediamond, worldmarket |
-| **Greenhouse** | Boards JSON API | 12 | **flexport**, lucidmotors, nuro, samsara, **doordashusa**, instacart, **waymo**, **andurilindustries**, **spacex**, uberfreight, **aloyoga**, **carvana** |
+| **Workday** | CXS JSON API | 56 | nvidia, intel, cisco, broadcom, **appliedmaterials**, **marvell**, **kla**, edwards, gilead, amgen, illumina, dexcom, resmed, stryker, genentech, chipotle, clorox, **niagara**, chevron (+ university site), sunrun, **bloomenergy**, levistrauss, deckers, **skechers**, **northropgrumman**, **johnsonjohnson**, **target**, mondelez, caterpillar, proctergamble, pfizer, cocacola, nissan, conagra, generalmills, kimberlyclark, walmart, toyota, pepsico, **rtx**, hp, **bd**, pwc, bakertilly, trimble, chrobinson, abbott, **thermofisher**, **motorolasolutions**, **avantor**, **teledyne**, bluediamond, worldmarket, saks, veralto |
+| **Greenhouse** | Boards JSON API | 13 | **flexport**, lucidmotors, nuro, samsara, **doordashusa**, instacart, **waymo**, **andurilindustries**, **spacex**, uberfreight, **aloyoga**, **carvana**, **shein** |
 | **Lever** | Postings JSON API | 4 | **zoox**, veeva, aeratechnology, velo3d |
 | **Ashby** | Posting JSON API | 2 | openai, snowflake |
 | **SmartRecruiters** | Postings JSON API | 2 | **WesternDigital**, AbbVie |
@@ -187,8 +187,9 @@ rank the *employers* that actually post those roles, then wire up the ones on a 
 first discovery pass (`abbott, thermofisher, motorolasolutions, avantor, teledyne, bluediamond`)
 landed **11 notifiable across 6 companies — 4 hit on the first poll**, vs. ~2 total from the 11
 brand-name additions. A second, entry-focused pass added `worldmarket, aloyoga, carvana, velo3d`
-(Alo Yoga + Carvana yielded 5 more). Winners skew to mid-size manufacturing / distribution /
-life-science / aerospace / consumer-retail ops, not tech brands.
+(Alo Yoga + Carvana yielded 5 more), and a third added `saks, veralto, shein` (SHEIN yielded). Returns
+diminish down the Adzuna ranking — the top employers carry the yield. Winners skew to mid-size
+manufacturing / distribution / life-science / aerospace / consumer-retail ops, not tech brands.
 
 ### Single-company scrapers (bespoke)
 
