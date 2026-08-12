@@ -468,7 +468,7 @@ OTHER  →  never emailed</code></pre>
   Target employers shift from tech-heavy to <strong>SCM-heavy, California-relevant</strong> firms. The list below is
   <strong>live in <code>application.properties</code> and verified end-to-end</strong> (Aug 2026): every slug/param was
   probed against the live ATS API and confirmed to return jobs, and a full poll runs all of them with zero scrape
-  failures. <strong>92 direct-config employers</strong> (59 Workday + 18 Greenhouse + 5 Lever + 4 Ashby + 2 SmartRecruiters
+  failures. <strong>110 direct-config employers</strong> (64 Workday + 25 Greenhouse + 8 Lever + 7 Ashby + 2 SmartRecruiters
   + 3 OracleCloud + 1 SuccessFactors) plus 4 bespoke single-company scrapers (Amazon, Microsoft, Apple, Tesla). The employer set was
   grown via a strict "has a real California office" pass across tech / semiconductor / pharma / CPG / auto / aerospace /
   consulting / 3PL names; only those on a scrapeable ATS (Workday / Greenhouse / Lever / Ashby / SmartRecruiters /
@@ -477,7 +477,7 @@ OTHER  →  never emailed</code></pre>
 </p>
 
 <p class="note"><strong>Bold</strong> = surfaced ≥1 notifiable (entry-level / internship / unsure) CA SCM role in the Aug 2026 test polls; the rest scrape clean but haven't produced a matching opening yet.</p>
-<h4>Workday (59) — <code>subdomain</code> / <code>wd{instance}</code> / <code>site</code></h4>
+<h4>Workday (64) — <code>subdomain</code> / <code>wd{instance}</code> / <code>site</code></h4>
 <table>
   <tr><th>Segment</th><th>Employer</th><th>Location</th><th>Workday path</th></tr>
   <tr><td rowspan="7">Semiconductors / hardware</td><td>NVIDIA</td><td>Santa Clara</td><td>nvidia / wd5 / NVIDIAExternalCareerSite</td></tr>
@@ -527,7 +527,7 @@ OTHER  →  never emailed</code></pre>
   <tr><td>Baker Tilly</td><td>LA / Irvine / San Diego / SF</td><td>bakertilly / wd5 / BTCareers</td></tr>
   <tr><td>Trimble</td><td>Sunnyvale</td><td>trimble / wd1 / TrimbleCareers</td></tr>
   <tr><td>C.H. Robinson (3PL)</td><td>Orange / Carson / San Bernardino</td><td>chrobinson / wd5 / CHRobinson</td></tr>
-  <tr><td rowspan="12">Role-first discovery (Adzuna) — employers actually posting CA SCM roles</td><td><strong>Avantor</strong></td><td>CA distribution / life-sci</td><td>vwr / wd1 / avantorJobs</td></tr>
+  <tr><td rowspan="17">Role-first discovery (Adzuna) — employers actually posting CA SCM roles</td><td><strong>Avantor</strong></td><td>CA distribution / life-sci</td><td>vwr / wd1 / avantorJobs</td></tr>
   <tr><td><strong>Thermo Fisher</strong></td><td>Carlsbad / South SF</td><td>thermofisher / wd5 / ThermoFisherCareers</td></tr>
   <tr><td><strong>Motorola Solutions</strong></td><td>CA sites</td><td>motorolasolutions / wd5 / Careers</td></tr>
   <tr><td><strong>Teledyne</strong></td><td>Thousand Oaks / San Diego</td><td>flir / wd1 / flircareers</td></tr>
@@ -539,9 +539,14 @@ OTHER  →  never emailed</code></pre>
   <tr><td><strong>Hyve Solutions</strong> (tier 1)</td><td>Fremont (TD SYNNEX)</td><td>synnex / wd5 / hyvecareers</td></tr>
   <tr><td>Gap Inc (tier 1)</td><td>San Francisco</td><td>gapinc / wd1 / GAPINC</td></tr>
   <tr><td>DuPont (tier 1)</td><td>Carlsbad (SC rotational)</td><td>dupont / wd5 / Jobs</td></tr>
+  <tr><td><strong>Sysco</strong> (tier 2)</td><td>CA foodservice DCs</td><td>sysco / wd5 / syscocareers</td></tr>
+  <tr><td><strong>US Foods</strong> (tier 2)</td><td>CA foodservice DCs</td><td>usfoods / wd1 / usfoodscareersExternal</td></tr>
+  <tr><td>Cardinal Health (tier 2)</td><td>CA medical distribution</td><td>cardinalhealth / wd1 / EXT</td></tr>
+  <tr><td>Ingram Micro (tier 2)</td><td>Irvine</td><td>ingrammicro / wd5 / IngramMicro</td></tr>
+  <tr><td>Cadence (tier 2)</td><td>San Jose (EDA)</td><td>cadence / wd1 / External_Careers</td></tr>
 </table>
 
-<h4>Greenhouse (18) — board slug</h4>
+<h4>Greenhouse (25) — board slug</h4>
 <table>
   <tr><th>Employer</th><th>Location</th><th>Slug</th></tr>
   <tr><td><strong>Flexport (3PL)</strong></td><td>San Francisco</td><td>flexport</td></tr>
@@ -562,20 +567,33 @@ OTHER  →  never emailed</code></pre>
   <tr><td><strong>Figure</strong> (tier 1)</td><td>San Jose (robotics)</td><td>figureai</td></tr>
   <tr><td><strong>Neros</strong> (tier 1)</td><td>El Segundo (drones)</td><td>nerostechnologies</td></tr>
   <tr><td>LeoLabs (tier 1)</td><td>Menlo Park (space radar)</td><td>leolabsinc</td></tr>
+  <tr><td><strong>Vast</strong> (space station, tier 2)</td><td>Long Beach</td><td>vast</td></tr>
+  <tr><td><strong>Zipline</strong> (drone delivery, tier 2)</td><td>South SF</td><td>flyzipline</td></tr>
+  <tr><td><strong>Harbinger Motors</strong> (EV, tier 2)</td><td>Garden Grove</td><td>harbingermotors</td></tr>
+  <tr><td><strong>Pure Storage</strong> (tier 2)</td><td>Santa Clara</td><td>purestorage</td></tr>
+  <tr><td>Skyryse (tier 2)</td><td>El Segundo</td><td>skyryse</td></tr>
+  <tr><td>SambaNova (tier 2)</td><td>Palo Alto</td><td>sambanovasystems</td></tr>
+  <tr><td>Revolution Medicines (tier 2)</td><td>Redwood City</td><td>revolutionmedicines</td></tr>
 </table>
 
-<h4>Lever (5), Ashby (4), SmartRecruiters (2), OracleCloud (3)</h4>
+<h4>Lever (8), Ashby (7), SmartRecruiters (2), OracleCloud (3)</h4>
 <table>
   <tr><th>Platform</th><th>Employer</th><th>Location</th><th>Identifier</th></tr>
-  <tr><td rowspan="5">Lever</td><td><strong>Zoox (AV)</strong></td><td>Foster City</td><td>zoox</td></tr>
+  <tr><td rowspan="8">Lever</td><td><strong>Zoox (AV)</strong></td><td>Foster City</td><td>zoox</td></tr>
   <tr><td>Veeva</td><td>Pleasanton</td><td>veeva</td></tr>
   <tr><td>Aera Technology (SCM software)</td><td>Mountain View</td><td>aeratechnology</td></tr>
   <tr><td>Velo3D (metal AM, batch 2)</td><td>Fremont</td><td>velo3d</td></tr>
   <tr><td><strong>Penumbra</strong> (med-device, tier 1)</td><td>Alameda</td><td>penumbrainc</td></tr>
-  <tr><td rowspan="4">Ashby</td><td>OpenAI</td><td>San Francisco</td><td>openai</td></tr>
+  <tr><td><strong>Ambi Robotics</strong> (tier 2)</td><td>Berkeley</td><td>ambirobotics</td></tr>
+  <tr><td><strong>Orca Bio</strong> (tier 2)</td><td>Sacramento</td><td>orcabiosystems</td></tr>
+  <tr><td>Gopuff (tier 2)</td><td>CA delivery ops</td><td>gopuff</td></tr>
+  <tr><td rowspan="7">Ashby</td><td>OpenAI</td><td>San Francisco</td><td>openai</td></tr>
   <tr><td>Snowflake</td><td>San Mateo</td><td>snowflake</td></tr>
   <tr><td><strong>1X</strong> (humanoid robotics, tier 1)</td><td>Sunnyvale</td><td>1x</td></tr>
   <tr><td><strong>Mach Industries</strong> (defense, tier 1)</td><td>Huntington Beach</td><td>mach</td></tr>
+  <tr><td><strong>Gritt Robotics</strong> (tier 2)</td><td>South SF</td><td>gritt</td></tr>
+  <tr><td><strong>Northwood Space</strong> (tier 2)</td><td>El Segundo</td><td>northwoodspace</td></tr>
+  <tr><td><strong>Crusoe</strong> (AI infra, tier 2)</td><td>San Francisco</td><td>crusoe</td></tr>
   <tr><td rowspan="2">SmartRecruiters</td><td><strong>Western Digital</strong></td><td>San Jose</td><td>WesternDigital</td></tr>
   <tr><td>AbbVie</td><td>South San Francisco</td><td>AbbVie</td></tr>
   <tr><td rowspan="3">OracleCloud</td><td>Fortinet</td><td>Sunnyvale</td><td>edel / us2 / CX_2001</td></tr>
