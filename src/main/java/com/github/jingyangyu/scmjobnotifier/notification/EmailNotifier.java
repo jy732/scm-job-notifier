@@ -3,9 +3,7 @@ package com.github.jingyangyu.scmjobnotifier.notification;
 import com.github.jingyangyu.scmjobnotifier.model.JobPosting;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
-import java.time.LocalDate;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
@@ -39,15 +37,6 @@ public class EmailNotifier {
 
     private static final DateTimeFormatter DATE_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault());
-
-    /** Time-of-day greeting is keyed to Pacific time (the jobs are all California). */
-    private static final ZoneId PST = ZoneId.of("America/Los_Angeles");
-
-    // First-email-of-the-window guards: the greeting is appended only to the FIRST email that lands
-    // in each morning / night session (per day), not every email in the window. In-memory, so a
-    // restart mid-window can re-greet once — acceptable for a personal touch.
-    private volatile LocalDate lastMorningGreet;
-    private volatile LocalDate lastNightGreet;
 
     public EmailNotifier(
             JavaMailSender mailSender,
@@ -142,7 +131,7 @@ public class EmailNotifier {
         if (recentJobs.isEmpty()) {
             subject = "[SCM Summary] No new CA SCM postings in the last 24 hours";
             body =
-                    headerWithGreeting()
+                    mascotHeader()
                             + "<p>No new California SCM entry-level/internship postings in the last"
                             + " 24 hours.</p>";
         } else {
@@ -193,7 +182,7 @@ public class EmailNotifier {
         List<JobPosting> adzuna =
                 jobs.stream().filter(j -> "adzuna".equals(j.getSource())).toList();
         StringBuilder sb = new StringBuilder();
-        sb.append(headerWithGreeting());
+        sb.append(mascotHeader());
         if (!direct.isEmpty()) {
             sb.append(buildSection("New SCM Postings (California)", null, direct));
         }
@@ -209,50 +198,14 @@ public class EmailNotifier {
     }
 
     /**
-     * Centered Hello Kitty mascot at the top of every email. Referenced as a CID inline attachment
-     * ({@code cid:hellokitty}, added in {@link #sendHtmlEmail}) so it renders without external
-     * hosting. {@code image-rendering:pixelated} keeps the pixel art crisp when scaled down.
+     * Centered Hello Kitty mascot image at the top of every email. Referenced as a CID inline
+     * attachment ({@code cid:hellokitty}, added in {@link #sendHtmlEmail}) so it renders without
+     * external hosting. {@code image-rendering:pixelated} keeps the pixel art crisp.
      */
-    /**
-     * Mascot header plus, if this is the first email of a morning/night window, a greeting line.
-     */
-    private String headerWithGreeting() {
-        String greeting = timeGreeting();
-        return mascotHeader(greeting.isEmpty() ? "" : " " + escape(greeting));
-    }
-
-    /**
-     * Returns a Pacific-time greeting for the <b>first</b> email of the morning (07:00–11:59) or
-     * night (22:00–00:59) window each day, else empty. The night window crosses midnight, so its
-     * session is keyed to the 22:00 date.
-     */
-    private synchronized String timeGreeting() {
-        ZonedDateTime now = ZonedDateTime.now(PST);
-        int hour = now.getHour();
-        LocalDate today = now.toLocalDate();
-        if (hour >= 7 && hour < 12) {
-            if (!today.equals(lastMorningGreet)) {
-                lastMorningGreet = today;
-                return "早安啊小严同学！";
-            }
-        } else if (hour >= 22 || hour < 1) {
-            LocalDate session = (hour >= 22) ? today : today.minusDays(1);
-            if (!session.equals(lastNightGreet)) {
-                lastNightGreet = session;
-                return "晚安呐小严同学";
-            }
-        }
-        return "";
-    }
-
-    private static String mascotHeader(String taglineSuffix) {
+    private static String mascotHeader() {
         return "<div style='text-align:center;margin:4px 0 16px;'>"
                 + "<img src='cid:hellokitty' alt='Hello Kitty hard at work' width='170'"
-                + " style='image-rendering:pixelated;'/>"
-                + "<div style='color:#d6336c;font-family:sans-serif;font-size:0.95em;"
-                + "margin-top:6px;'>本喵肝到脱毛，才给你扒来下面这些工作 🐱💻"
-                + taglineSuffix
-                + "</div></div>";
+                + " style='image-rendering:pixelated;'/></div>";
     }
 
     /** Renders one titled section: a table with one row per job and a Type column. */
