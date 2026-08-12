@@ -468,8 +468,8 @@ OTHER  →  never emailed</code></pre>
   Target employers shift from tech-heavy to <strong>SCM-heavy, California-relevant</strong> firms. The list below is
   <strong>live in <code>application.properties</code> and verified end-to-end</strong> (Aug 2026): every slug/param was
   probed against the live ATS API and confirmed to return jobs, and a full poll runs all of them with zero scrape
-  failures. <strong>120 direct-config employers</strong> (67 Workday + 26 Greenhouse + 8 Lever + 8 Ashby + 5 SmartRecruiters
-  + 4 OracleCloud + 1 SuccessFactors + 1 iCIMS) plus 4 bespoke single-company scrapers (Amazon, Microsoft, Apple, Tesla). The employer set was
+  failures. <strong>122 direct-config employers</strong> (68 Workday + 26 Greenhouse + 8 Lever + 8 Ashby + 5 SmartRecruiters
+  + 4 OracleCloud + 1 SuccessFactors + 2 iCIMS) plus 4 bespoke single-company scrapers (Amazon, Microsoft, Apple, Tesla). The employer set was
   grown via a strict "has a real California office" pass across tech / semiconductor / pharma / CPG / auto / aerospace /
   consulting / 3PL names; only those on a scrapeable ATS (Workday / Greenhouse / Lever / Ashby / SmartRecruiters /
   OracleCloud) are listed here — <code>application.properties</code> is the source of truth. Known CA-office SCM targets
@@ -477,7 +477,7 @@ OTHER  →  never emailed</code></pre>
 </p>
 
 <p class="note"><strong>Bold</strong> = surfaced ≥1 notifiable (entry-level / internship / unsure) CA SCM role in the Aug 2026 test polls; the rest scrape clean but haven't produced a matching opening yet.</p>
-<h4>Workday (67) — <code>subdomain</code> / <code>wd{instance}</code> / <code>site</code></h4>
+<h4>Workday (68) — <code>subdomain</code> / <code>wd{instance}</code> / <code>site</code></h4>
 <table>
   <tr><th>Segment</th><th>Employer</th><th>Location</th><th>Workday path</th></tr>
   <tr><td rowspan="7">Semiconductors / hardware</td><td>NVIDIA</td><td>Santa Clara</td><td>nvidia / wd5 / NVIDIAExternalCareerSite</td></tr>
@@ -547,6 +547,7 @@ OTHER  →  never emailed</code></pre>
   <tr><td><strong>Specialized</strong></td><td>Morgan Hill (bikes)</td><td>specialized / wd5 / Specialized_External_Career_Site</td></tr>
   <tr><td><strong>Boeing</strong> (re-classified: was "custom")</td><td>El Segundo / Long Beach</td><td>boeing / wd1 / EXTERNAL_CAREERS</td></tr>
   <tr><td>Accenture (re-classified: was "custom")</td><td>SF / San Diego / LA</td><td>accenture / wd103 / AccentureCareers</td></tr>
+  <tr><td>Shoe Palace (Tier-3 re-verify)</td><td>Morgan Hill (footwear)</td><td>jdgroupnam / wd1 / Shoe_Palace_Career_Site</td></tr>
 </table>
 
 <h4>Greenhouse (26) — board slug</h4>
@@ -609,7 +610,7 @@ OTHER  →  never emailed</code></pre>
   <tr><td>Oracle</td><td>Redwood Shores</td><td>eeho / us2 / jobsearch</td></tr>
   <tr><td>Albertsons (grocery, big board — 0 SCM yield)</td><td>CA DCs / stores</td><td>eofd / us6 / CX_1001</td></tr>
   <tr><td>SuccessFactors</td><td>SAP (validation tenant)</td><td>Palo Alto / Newport Beach</td><td>jobs.sap.com</td></tr>
-  <tr><td><strong>iCIMS</strong> (HTTP legacy-fragment scraper)</td><td>AIT Worldwide (3PL)</td><td>careers-aitworldwide.icims.com</td></tr>
+  <tr><td><strong>iCIMS</strong> (HTTP legacy-fragment scraper)</td><td>AIT Worldwide (3PL); Nikkiso (Escondido clean-energy)</td><td>careers-aitworldwide, careers-nikkiso</td></tr>
 </table>
 <p>
   <strong>iCIMS adapter:</strong> reads the legacy search fragment <code>{sub}.icims.com/jobs/search?pr={page}&amp;in_iframe=1</code>
