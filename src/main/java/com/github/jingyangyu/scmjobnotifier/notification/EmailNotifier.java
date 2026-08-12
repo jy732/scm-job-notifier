@@ -94,7 +94,7 @@ public class EmailNotifier {
                 "Preparing job alert email: to={}, subject={}",
                 Arrays.toString(toAddresses),
                 subject);
-        String body = buildAlertHtml(newJobs);
+        String body = buildBody(newJobs);
         try {
             sendHtmlEmail(subject, body);
             log.info("Job alert email sent successfully to {}", Arrays.toString(toAddresses));
@@ -136,7 +136,7 @@ public class EmailNotifier {
                     String.format(
                             "[SCM Summary] %d new CA SCM posting(s) in the last 24 hours",
                             recentJobs.size());
-            body = buildAlertHtml(recentJobs);
+            body = buildBody(recentJobs);
         }
         try {
             sendHtmlEmail(subject, body);
@@ -147,10 +147,39 @@ public class EmailNotifier {
         }
     }
 
-    /** Builds the single alert table: one row per job, with a Type column carrying the track. */
-    private String buildAlertHtml(List<JobPosting> jobs) {
+    /**
+     * Builds the email body. Directly-scraped postings render in the main section; Adzuna-sourced
+     * long-tail postings (source="adzuna") render in a separate, clearly-labeled section below.
+     */
+    private String buildBody(List<JobPosting> jobs) {
+        List<JobPosting> direct =
+                jobs.stream().filter(j -> !"adzuna".equals(j.getSource())).toList();
+        List<JobPosting> adzuna =
+                jobs.stream().filter(j -> "adzuna".equals(j.getSource())).toList();
         StringBuilder sb = new StringBuilder();
-        sb.append("<h2>New SCM Postings (California)</h2>");
+        if (!direct.isEmpty()) {
+            sb.append(buildSection("New SCM Postings (California)", null, direct));
+        }
+        if (!adzuna.isEmpty()) {
+            sb.append(
+                    buildSection(
+                            "Additional postings via Adzuna (broader CA sources)",
+                            "Aggregated from job boards for employers we don't monitor directly —"
+                                    + " verify details on the linked page.",
+                            adzuna));
+        }
+        return sb.toString();
+    }
+
+    /** Renders one titled section: a table with one row per job and a Type column. */
+    private String buildSection(String heading, String note, List<JobPosting> jobs) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<h2>").append(escape(heading)).append("</h2>");
+        if (note != null) {
+            sb.append("<p style='color:#555;font-size:0.9em;'>")
+                    .append(escape(note))
+                    .append("</p>");
+        }
         sb.append(
                 "<table border='1' cellpadding='8' cellspacing='0'"
                         + " style='border-collapse:collapse;'>");

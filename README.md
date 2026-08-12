@@ -14,7 +14,8 @@ SCM track ENTRY_LEVEL / INTERNSHIP / UNSURE), **location** (US → California on
 > [中文使用说明 (Chinese guide for email recipients)](README.zh-CN.md).
 
 **Status:** implemented, building, and verified end-to-end. A full poll runs all 126 companies (122
-config-driven across 8 ATS platforms + 4 bespoke) in ~6 min.
+config-driven across 8 ATS platforms + 4 bespoke) in ~6 min, plus an **Adzuna aggregator source**
+that nets long-tail CA-SCM roles at employers not directly monitored.
 
 ---
 
@@ -225,6 +226,26 @@ company list; one scraper per class.
 
 Still **deferred** (not yet ported, low SCM yield): Google, Meta, Netflix, TikTok.
 
+### Aggregator source (Adzuna) — the long-tail net
+
+The direct scrapers cover ~126 known employers with full metadata and 15-min freshness. **Adzuna**
+(`AdzunaScraper`) complements them by querying the [Adzuna jobs API](https://developer.adzuna.com) for
+`{SCM titles} × California` across *every* board — surfacing roles at the ~450 long-tail employers
+(small/custom ATSs) we can't scrape directly. Same `JobScraper` interface, so it reuses the whole
+pipeline (CA/SCM filters, dedup, classifier, email). Design:
+
+- **Additive only** — excludes any employer already covered by a direct scraper (built from all
+  configured slugs + aliases), so it never duplicates their jobs; it's purely the long-tail net.
+- **Self-throttled** — participates in the poll but only hits the API every `throttle-minutes` (60),
+  staying under the ~250 calls/day free tier (~8 queries × 24 h ≈ 192 calls/day).
+- **Separate email section** — every Adzuna posting is tagged `source="adzuna"` and rendered in its
+  own "Additional postings via Adzuna" table, below the directly-monitored postings.
+- **Trade-off** — breadth over freshness: Adzuna lags hours–days and gives snippet-only descriptions
+  (title + snippet + Gemini still classify). Disabled automatically if the API keys are blank.
+
+_Verified: one live fetch → 75 long-tail candidates → 26 CA → 7 SCM-relevant → e.g. "Production
+Planner/Master Scheduler" at an employer outside the directly-monitored set._
+
 > **Playwright note:** Tesla and Apple use a headless Chromium browser (Playwright). This pushes the
 > runnable jar to ~275 MB and downloads Chromium on first run. If you don't need them, removing the
 > `com.microsoft.playwright` dependency + `PlaywrightConfig` + the two scrapers drops the jar to ~75 MB.
@@ -357,7 +378,9 @@ All settings live in `src/main/resources/application.properties`:
 | `gemini.model` | `gemini-2.5-flash` | Gemini model |
 | `job.notification.to` | `${NOTIFICATION_EMAIL:}` | single recipient list |
 | `job.companies.{greenhouse,lever,ashby,smartrecruiters}` | populated | comma-separated slugs |
-| `job.workday.companies[n].*` / `job.oraclecloud.companies[n].*` | populated | indexed ATS configs |
+| `job.workday.companies[n].*` / `job.oraclecloud.companies[n].*` / `job.icims.companies[n].*` | populated | indexed ATS configs |
+| `job.adzuna.enabled` / `app-id` / `app-key` | `true` / `${ADZUNA_APP_ID:}` / `${ADZUNA_APP_KEY:}` | Adzuna aggregator source (off if keys blank) |
+| `job.adzuna.throttle-minutes` / `max-days-old` / `pages` | `60` / `30` / `1` | Adzuna cadence + query window |
 
 ## Tech Stack
 

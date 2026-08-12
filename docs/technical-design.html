@@ -619,6 +619,19 @@ OTHER  →  never emailed</code></pre>
   fetched best-effort from the detail fragment (two-phase). Validated on AIT (135 jobs → 1 notifiable). General Atomics and
   Hyundai Mobis are on iCIMS too but hide their subdomain behind a JS careers page — a one-time DevTools lookup unlocks them.
 </p>
+<h4>Aggregator source — Adzuna (the long-tail net)</h4>
+<p>
+  The direct scrapers cover ~126 known employers with full metadata + 15-min freshness. <strong>AdzunaScraper</strong>
+  complements them: it queries the Adzuna jobs API for <code>{SCM titles} × California</code> across <em>every</em> board,
+  surfacing roles at the ~450 long-tail employers (small/custom ATSs) we can't scrape directly. It implements the same
+  <code>JobScraper</code> interface (single synthetic company <code>adzuna</code>), so it reuses the entire pipeline —
+  CA/SCM filters, dedup, classifier, email — for free. It is <strong>additive only</strong> (excludes any employer already
+  covered by a direct scraper, matched against all configured slugs + aliases), <strong>self-throttled</strong> (hits the API
+  once per <code>throttle-minutes</code>=60, ~192 calls/day, under the free tier), and <strong>tagged</strong>
+  <code>source="adzuna"</code> so postings render in a <em>separate</em> email section. Trade-off: breadth over freshness
+  (Adzuna lags hours–days; snippet-only descriptions — title + snippet + Gemini still classify). Verified live: one fetch →
+  75 long-tail candidates → 26 CA → 7 SCM-relevant → 1 notifiable at an employer outside the monitored set.
+</p>
 <p>
   <strong>SuccessFactors adapter:</strong> SF has no public JSON API (OData is per-tenant OAuth-gated), so this scrapes the
   Career Site Builder <code>tile-search-results</code> HTML — tenant-HTML, not a uniform API. Bounded by SCM keyword queries,

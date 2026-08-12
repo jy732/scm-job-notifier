@@ -65,4 +65,11 @@ public class JobPosting {
      * OTHER is stored but never emailed.
      */
     private String level;
+
+    /**
+     * Data source. {@code null} (or "direct") for the ATS scrapers that monitor specific employers;
+     * "adzuna" for the aggregator source that covers long-tail employers we don't scrape directly.
+     * Used to render Adzuna postings in a separate email section.
+     */
+    private String source;
 }

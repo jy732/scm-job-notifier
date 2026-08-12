@@ -1,5 +1,6 @@
 package com.github.jingyangyu.scmjobnotifier;
 
+import com.github.jingyangyu.scmjobnotifier.config.AdzunaProperties;
 import com.github.jingyangyu.scmjobnotifier.config.IcimsProperties;
 import com.github.jingyangyu.scmjobnotifier.config.OracleCloudProperties;
 import com.github.jingyangyu.scmjobnotifier.config.SuccessFactorsProperties;
@@ -22,7 +23,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     WorkdayProperties.class,
     IcimsProperties.class,
     OracleCloudProperties.class,
-    SuccessFactorsProperties.class
+    SuccessFactorsProperties.class,
+    AdzunaProperties.class
 })
 public class ScmJobNotifierApplication {
 
