@@ -243,8 +243,8 @@ pipeline (CA/SCM filters, dedup, classifier, email). Design:
 - **Trade-off** — breadth over freshness: Adzuna lags hours–days and gives snippet-only descriptions
   (title + snippet + Gemini still classify). Disabled automatically if the API keys are blank.
 
-_Verified: one live fetch → 75 long-tail candidates → 26 CA → 7 SCM-relevant → e.g. "Production
-Planner/Master Scheduler" at an employer outside the directly-monitored set._
+_Verified: one live fetch → 203 long-tail candidates → 102 CA → 52 SCM-relevant → 46 notifiable at long-tail
+employers outside the directly-monitored set._
 
 > **Playwright note:** Tesla and Apple use a headless Chromium browser (Playwright). This pushes the
 > runnable jar to ~275 MB and downloads Chromium on first run. If you don't need them, removing the

@@ -6,6 +6,7 @@ import com.github.jingyangyu.scmjobnotifier.config.OracleCloudProperties;
 import com.github.jingyangyu.scmjobnotifier.config.SuccessFactorsProperties;
 import com.github.jingyangyu.scmjobnotifier.config.WorkdayProperties;
 import com.github.jingyangyu.scmjobnotifier.model.JobPosting;
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -244,7 +245,10 @@ public class AdzunaScraper implements JobScraper {
         Map<String, Object> body =
                 webClient
                         .get()
-                        .uri(url)
+                        // Pass a URI so WebClient uses it verbatim — .uri(String) treats it as a
+                        // template and double-encodes our %20, which silently zeroed every
+                        // multi-word phrase query (only single-word ones returned results).
+                        .uri(URI.create(url))
                         .accept(MediaType.APPLICATION_JSON)
                         .retrieve()
                         .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
