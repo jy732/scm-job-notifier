@@ -3,12 +3,15 @@ package com.github.jingyangyu.scmjobnotifier.notification;
 import com.github.jingyangyu.scmjobnotifier.model.JobPosting;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -36,6 +39,15 @@ public class EmailNotifier {
 
     private static final DateTimeFormatter DATE_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault());
+
+    /** Time-of-day greeting is keyed to Pacific time (the jobs are all California). */
+    private static final ZoneId PST = ZoneId.of("America/Los_Angeles");
+
+    // First-email-of-the-window guards: the greeting is appended only to the FIRST email that lands
+    // in each morning / night session (per day), not every email in the window. In-memory, so a
+    // restart mid-window can re-greet once — acceptable for a personal touch.
+    private volatile LocalDate lastMorningGreet;
+    private volatile LocalDate lastNightGreet;
 
     public EmailNotifier(
             JavaMailSender mailSender,
@@ -96,7 +108,7 @@ public class EmailNotifier {
                 subject);
         String body = buildBody(newJobs);
         try {
-            sendHtmlEmail(subject, body);
+            sendHtmlEmail(subject, body, toAddresses);
             log.info("Job alert email sent successfully to {}", Arrays.toString(toAddresses));
             return true;
         } catch (Exception e) {
@@ -130,7 +142,9 @@ public class EmailNotifier {
         if (recentJobs.isEmpty()) {
             subject = "[SCM Summary] No new CA SCM postings in the last 24 hours";
             body =
-                    "<p>No new California SCM entry-level/internship postings in the last 24 hours.</p>";
+                    headerWithGreeting()
+                            + "<p>No new California SCM entry-level/internship postings in the last"
+                            + " 24 hours.</p>";
         } else {
             subject =
                     String.format(
@@ -139,10 +153,32 @@ public class EmailNotifier {
             body = buildBody(recentJobs);
         }
         try {
-            sendHtmlEmail(subject, body);
+            sendHtmlEmail(subject, body, toAddresses);
             return true;
         } catch (Exception e) {
             log.error("Failed to send daily summary after retries: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
+     * Sends a sample alert to an <b>explicit</b> address (test only) — deliberately ignores the
+     * configured {@code toAddresses} so tests never hit the real recipient. Same body/template as a
+     * real alert (mascot + sections).
+     *
+     * @return true if the email was sent successfully, false otherwise
+     */
+    public boolean sendTestAlert(List<JobPosting> jobs, String toAddress) {
+        if (toAddress == null || toAddress.isBlank()) {
+            return false;
+        }
+        String subject = String.format("[SCM Job Alert · TEST] %d sample posting(s)", jobs.size());
+        try {
+            sendHtmlEmail(subject, buildBody(jobs), new String[] {toAddress});
+            log.info("TEST alert email sent to {}", toAddress);
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to send TEST alert to {}: {}", toAddress, e.getMessage(), e);
             return false;
         }
     }
@@ -157,6 +193,7 @@ public class EmailNotifier {
         List<JobPosting> adzuna =
                 jobs.stream().filter(j -> "adzuna".equals(j.getSource())).toList();
         StringBuilder sb = new StringBuilder();
+        sb.append(headerWithGreeting());
         if (!direct.isEmpty()) {
             sb.append(buildSection("New SCM Postings (California)", null, direct));
         }
@@ -169,6 +206,53 @@ public class EmailNotifier {
                             adzuna));
         }
         return sb.toString();
+    }
+
+    /**
+     * Centered Hello Kitty mascot at the top of every email. Referenced as a CID inline attachment
+     * ({@code cid:hellokitty}, added in {@link #sendHtmlEmail}) so it renders without external
+     * hosting. {@code image-rendering:pixelated} keeps the pixel art crisp when scaled down.
+     */
+    /**
+     * Mascot header plus, if this is the first email of a morning/night window, a greeting line.
+     */
+    private String headerWithGreeting() {
+        String greeting = timeGreeting();
+        return mascotHeader(greeting.isEmpty() ? "" : " " + escape(greeting));
+    }
+
+    /**
+     * Returns a Pacific-time greeting for the <b>first</b> email of the morning (07:00–11:59) or
+     * night (22:00–00:59) window each day, else empty. The night window crosses midnight, so its
+     * session is keyed to the 22:00 date.
+     */
+    private synchronized String timeGreeting() {
+        ZonedDateTime now = ZonedDateTime.now(PST);
+        int hour = now.getHour();
+        LocalDate today = now.toLocalDate();
+        if (hour >= 7 && hour < 12) {
+            if (!today.equals(lastMorningGreet)) {
+                lastMorningGreet = today;
+                return "早安啊小严同学！";
+            }
+        } else if (hour >= 22 || hour < 1) {
+            LocalDate session = (hour >= 22) ? today : today.minusDays(1);
+            if (!session.equals(lastNightGreet)) {
+                lastNightGreet = session;
+                return "晚安呐小严同学";
+            }
+        }
+        return "";
+    }
+
+    private static String mascotHeader(String taglineSuffix) {
+        return "<div style='text-align:center;margin:4px 0 16px;'>"
+                + "<img src='cid:hellokitty' alt='Hello Kitty hard at work' width='170'"
+                + " style='image-rendering:pixelated;'/>"
+                + "<div style='color:#d6336c;font-family:sans-serif;font-size:0.95em;"
+                + "margin-top:6px;'>本喵肝到脱毛，才给你扒来下面这些工作 🐱💻"
+                + taglineSuffix
+                + "</div></div>";
     }
 
     /** Renders one titled section: a table with one row per job and a Type column. */
@@ -313,7 +397,8 @@ public class EmailNotifier {
      * Sends an HTML email with retry support for transient failures. Retries up to 3 times with
      * exponential backoff (2s, 4s, 8s) on {@link MessagingException} and {@link MailException}.
      */
-    private void sendHtmlEmail(String subject, String htmlBody) throws Exception {
+    private void sendHtmlEmail(String subject, String htmlBody, String[] recipients)
+            throws Exception {
         retryTemplate.execute(
                 context -> {
                     if (context.getRetryCount() > 0) {
@@ -322,11 +407,22 @@ public class EmailNotifier {
                     }
                     log.info("Connecting to SMTP server to send: {}", subject);
                     MimeMessage message = mailSender.createMimeMessage();
-                    MimeMessageHelper helper = new MimeMessageHelper(message, true);
+                    // MIXED_RELATED so we can inline the mascot image alongside the HTML.
+                    MimeMessageHelper helper =
+                            new MimeMessageHelper(
+                                    message,
+                                    MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
+                                    "UTF-8");
                     helper.setFrom(fromAddress);
-                    helper.setTo(toAddresses);
+                    helper.setTo(recipients);
                     helper.setSubject(subject);
                     helper.setText(htmlBody, true);
+                    // Inline Hello Kitty mascot (cid:hellokitty in the body). Must be added AFTER
+                    // setText. Best-effort — a missing image just leaves the alt text.
+                    ClassPathResource kitty = new ClassPathResource("hellokitty.png");
+                    if (kitty.exists()) {
+                        helper.addInline("hellokitty", kitty);
+                    }
                     mailSender.send(message);
                     log.info("Email SENT successfully: {}", subject);
                     return null;

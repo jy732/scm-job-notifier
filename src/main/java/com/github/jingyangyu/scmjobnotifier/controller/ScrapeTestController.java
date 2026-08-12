@@ -1,8 +1,10 @@
 package com.github.jingyangyu.scmjobnotifier.controller;
 
 import com.github.jingyangyu.scmjobnotifier.model.JobPosting;
+import com.github.jingyangyu.scmjobnotifier.notification.EmailNotifier;
 import com.github.jingyangyu.scmjobnotifier.scraper.JobScraper;
 import com.github.jingyangyu.scmjobnotifier.service.JobPollingService;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,10 +38,65 @@ public class ScrapeTestController {
 
     private final List<JobScraper> scrapers;
     private final JobPollingService pollingService;
+    private final EmailNotifier emailNotifier;
 
-    public ScrapeTestController(List<JobScraper> scrapers, JobPollingService pollingService) {
+    public ScrapeTestController(
+            List<JobScraper> scrapers,
+            JobPollingService pollingService,
+            EmailNotifier emailNotifier) {
         this.scrapers = scrapers;
         this.pollingService = pollingService;
+        this.emailNotifier = emailNotifier;
+    }
+
+    /** Hardcoded test recipient — deliberately NOT the configured (real) NOTIFICATION_EMAIL. */
+    private static final String TEST_EMAIL_TO = "jy63@illinois.edu";
+
+    /**
+     * Sends a sample alert email (2 direct + 1 Adzuna posting) to the hardcoded test address
+     * {@value #TEST_EMAIL_TO} — for testing SMTP + the template (Hello Kitty mascot + separate
+     * Adzuna section) without a poll and without touching the real recipient. {@code POST
+     * /api/test/email}.
+     */
+    @PostMapping("/email")
+    public Mono<Map<String, Object>> testEmail() {
+        return Mono.fromCallable(
+                        () -> {
+                            List<JobPosting> sample =
+                                    List.of(
+                                            JobPosting.builder()
+                                                    .company("Anduril Industries")
+                                                    .externalId("test-1")
+                                                    .title("Supply Chain Coordinator")
+                                                    .url("https://www.anduril.com/careers")
+                                                    .location("Costa Mesa, CA")
+                                                    .level("ENTRY_LEVEL")
+                                                    .detectedAt(Instant.now())
+                                                    .build(),
+                                            JobPosting.builder()
+                                                    .company("Rocket Lab")
+                                                    .externalId("test-2")
+                                                    .title("Materials Planner Intern")
+                                                    .url("https://www.rocketlabusa.com/careers")
+                                                    .location("Long Beach, CA")
+                                                    .level("INTERNSHIP")
+                                                    .detectedAt(Instant.now())
+                                                    .build(),
+                                            JobPosting.builder()
+                                                    .company("DGN Technologies")
+                                                    .externalId("test-3")
+                                                    .title("Production Planner / Master Scheduler")
+                                                    .url("https://example.com/job")
+                                                    .location("Redlands, San Bernardino County")
+                                                    .level("UNSURE")
+                                                    .source("adzuna")
+                                                    .detectedAt(Instant.now())
+                                                    .build());
+                            boolean sent = emailNotifier.sendTestAlert(sample, TEST_EMAIL_TO);
+                            return Map.<String, Object>of(
+                                    "sent", sent, "to", TEST_EMAIL_TO, "sampleJobs", sample.size());
+                        })
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     @PostMapping("/scrape/{platform}/{company}")

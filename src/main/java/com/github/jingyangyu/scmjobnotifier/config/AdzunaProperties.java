@@ -35,14 +35,16 @@ public class AdzunaProperties {
      * SCM title phrases queried against {@code where=California} (exact-phrase each). Mirrors the
      * Stage-1 entry/intern title taxonomy (see technical-design.html Appendix A) across every SCM
      * family, with an entry-level skew: since we only pull the newest ~50 per phrase, a specific
-     * phrase ("supply chain coordinator") surfaces more entry roles than a broad one ("supply chain",
-     * whose newest 50 skew senior → filtered out). The two coordinator/assistant patterns repeat
-     * across families because those are the reliable entry markers. Budget: 30 phrases × 1 page every
-     * {@link #throttleMinutes}=240 min (6 runs/day) ≈ 180 calls/day, under the ~250 free tier.
+     * phrase ("supply chain coordinator") surfaces more entry roles than a broad one ("supply
+     * chain", whose newest 50 skew senior → filtered out). The two coordinator/assistant patterns
+     * repeat across families because those are the reliable entry markers. Budget: 30 phrases × 1
+     * page every {@link #throttleMinutes}=240 min (6 runs/day) ≈ 180 calls/day, under the ~250 free
+     * tier.
      */
     private List<String> queries =
             List.of(
-                    // supply chain (broad catches rotational/leadership/development programs + new-grad)
+                    // supply chain (broad catches rotational/leadership/development programs +
+                    // new-grad)
                     "supply chain",
                     "supply chain coordinator",
                     "supply chain analyst",
