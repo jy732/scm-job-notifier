@@ -27,6 +27,13 @@ public class OracleCloudScraper implements JobScraper {
 
     private static final int PAGE_SIZE = 25;
 
+    /**
+     * Safety cap on pagination. Oracle Recruiting has no recency window, so a huge tenant (e.g.
+     * Albertsons ~7k reqs) would otherwise page forever; the per-company poll timeout would cut it
+     * off mid-scrape anyway. Bounds the scrape to {@value} × {@link #PAGE_SIZE} newest-listed reqs.
+     */
+    private static final int MAX_PAGES = 80;
+
     private final WebClient webClient;
     private final OracleCloudProperties properties;
 
@@ -72,7 +79,7 @@ public class OracleCloudScraper implements JobScraper {
         int offset = 0;
 
         try {
-            while (true) {
+            for (int page = 0; page < MAX_PAGES; page++) {
                 Map<String, Object> response = fetchPage(config, offset);
                 if (response == null) {
                     break;

@@ -13,8 +13,8 @@ SCM track ENTRY_LEVEL / INTERNSHIP / UNSURE), **location** (US → California on
 > 📨 **Receiving the alert emails and not an engineer?** See the plain-language guide:
 > [中文使用说明 (Chinese guide for email recipients)](README.zh-CN.md).
 
-**Status:** implemented, building, and verified end-to-end. A full poll runs all 116 companies (112
-config-driven across 7 ATS platforms + 4 bespoke) in ~6 min.
+**Status:** implemented, building, and verified end-to-end. A full poll runs all 119 companies (115
+config-driven across 8 ATS platforms + 4 bespoke) in ~6 min.
 
 ---
 
@@ -23,7 +23,7 @@ config-driven across 7 ATS platforms + 4 bespoke) in ~6 min.
 A single Spring Boot process runs four scheduled jobs against a file-based H2 database. The main poll
 cycle:
 
-1. **Scrape** — every 15 min, polls 112 config-driven companies (7 ATS platforms) plus 4 bespoke
+1. **Scrape** — every 15 min, polls 115 config-driven companies (8 ATS platforms) plus 4 bespoke
    single-company scrapers (Amazon, Microsoft, Apple, Tesla) using an 8-thread pool (3-min
    per-company timeout). **Greenhouse and Workday** fetch metadata only and defer descriptions to post-dedup;
    **Lever / Ashby / SmartRecruiters / OracleCloud** bundle descriptions into the list response (no
@@ -146,7 +146,7 @@ The daily 8 AM summary uses the same layout.
 
 ## Supported Platforms & Companies
 
-112 config-driven companies across 7 ATS platforms (all verified against the live ATS API as of Aug
+115 config-driven companies across 8 ATS platforms (all verified against the live ATS API as of Aug
 2026), plus 4 bespoke single-company scrapers.
 
 **Bold** = surfaced ≥1 notifiable (entry-level / internship / unsure) CA SCM role in the Aug 2026 test
@@ -155,13 +155,14 @@ polls; the rest scrape clean but haven't produced a matching opening yet. The tr
 
 | Platform | Method | Count | Companies |
 |----------|--------|-------|-----------|
-| **Workday** | CXS JSON API | 64 | nvidia, intel, cisco, broadcom, **appliedmaterials**, **marvell**, **kla**, edwards, gilead, amgen, illumina, dexcom, resmed, stryker, genentech, chipotle, clorox, **niagara**, chevron (+ university site), sunrun, **bloomenergy**, levistrauss, deckers, **skechers**, **northropgrumman**, **johnsonjohnson**, **target**, mondelez, caterpillar, proctergamble, pfizer, cocacola, nissan, conagra, generalmills, kimberlyclark, walmart, toyota, pepsico, **rtx**, hp, **bd**, pwc, bakertilly, trimble, chrobinson, abbott, **thermofisher**, **motorolasolutions**, **avantor**, **teledyne**, bluediamond, worldmarket, saks, veralto, **hyve**, gap, dupont, cardinalhealth, **sysco**, **usfoods**, ingrammicro, cadence |
+| **Workday** | CXS JSON API | 65 | nvidia, intel, cisco, broadcom, **appliedmaterials**, **marvell**, **kla**, edwards, gilead, amgen, illumina, dexcom, resmed, stryker, genentech, chipotle, clorox, **niagara**, chevron (+ university site), sunrun, **bloomenergy**, levistrauss, deckers, **skechers**, **northropgrumman**, **johnsonjohnson**, **target**, mondelez, caterpillar, proctergamble, pfizer, cocacola, nissan, conagra, generalmills, kimberlyclark, walmart, toyota, pepsico, **rtx**, hp, **bd**, pwc, bakertilly, trimble, chrobinson, abbott, **thermofisher**, **motorolasolutions**, **avantor**, **teledyne**, bluediamond, worldmarket, saks, veralto, **hyve**, gap, dupont, cardinalhealth, **sysco**, **usfoods**, ingrammicro, cadence, **specialized** |
 | **Greenhouse** | Boards JSON API | 26 | **flexport**, lucidmotors, nuro, samsara, **doordashusa**, instacart, **waymo**, **andurilindustries**, **spacex**, uberfreight, **aloyoga**, **carvana**, **shein**, **rocketlab**, **relativity**, **figureai**, **nerostechnologies**, leolabsinc, **flyzipline**, **vast**, **harbingermotors**, skyryse, sambanovasystems, revolutionmedicines, **purestorage**, **fashionnova** |
 | **Lever** | Postings JSON API | 8 | **zoox**, veeva, aeratechnology, velo3d, **penumbrainc**, **ambirobotics**, **orcabiosystems**, gopuff |
 | **Ashby** | Posting JSON API | 8 | openai, snowflake, **1x**, **mach**, **gritt**, **northwoodspace**, **crusoe**, plasmidsaurus |
 | **SmartRecruiters** | Postings JSON API | 2 | **WesternDigital**, AbbVie |
-| **OracleCloud** | Recruiting REST API | 3 | fortinet, honeywell, oracle |
+| **OracleCloud** | Recruiting REST API | 4 | fortinet, honeywell, oracle, albertsons |
 | **SuccessFactors** | CSB tile-search HTML | 1 | sap |
+| **iCIMS** | legacy fragment HTML | 1 | **ait** |
 
 > **SuccessFactors note:** SF has no public JSON API (OData is per-tenant OAuth-gated). This adapter
 > scrapes the Career Site Builder `tile-search-results` HTML — tenant-HTML, not a uniform API. It's
@@ -169,6 +170,12 @@ polls; the rest scrape clean but haven't produced a matching opening yet. The tr
 > it yields ~0 CA-SCM and is really a validation tenant). The high-value SF targets (Williams-Sonoma,
 > Ross, Nestlé, Colgate) aren't reachable at their obvious hosts (non-CSB, JS-loaded, or migrated ATS)
 > and need per-tenant onboarding — the adapter exists, but each host must be reverse-engineered.
+
+> **iCIMS note:** unlike swe-job-notifier's Playwright port, this scrapes iCIMS's *legacy* search
+> fragment (`{sub}.icims.com/jobs/search?pr={page}&in_iframe=1`) over plain HTTP — ~50 server-rendered
+> job cards/page, no browser needed. Locations (`US-CA-City`) are normalized to `City, CA`. Validated
+> on AIT Worldwide (3PL). General Atomics / Hyundai Mobis are iCIMS too but hide their subdomain behind
+> a JS careers page, so they need a one-time DevTools lookup before they can be added.
 
 #### Deferred employers (known CA-office SCM targets, not yet scrapeable)
 
@@ -182,7 +189,7 @@ unlock a whole batch:
 | **SAP SuccessFactors** | Bayer, Nestlé, Colgate-Palmolive, ExxonMobil, Williams-Sonoma, Ross Stores (Schneider → migrated to Jibe) | adapter built (validated on SAP); each tenant's CSB host must be reverse-engineered — most aren't at obvious hosts |
 | **Phenom** | bio-rad, Mattel, Intuitive Surgical, The Wonderful Company, Rivian, L'Oréal, Cummins | Phenom adapter |
 | **Eightfold** | Lam Research, Kroger (Ralphs) | Eightfold adapter |
-| **iCIMS** | AIT Worldwide Logistics | iCIMS adapter (config hooks already exist) |
+| **iCIMS** | General Atomics, Hyundai Mobis (AIT Worldwide now added) | adapter built (HTTP); these two hide their subdomain behind a JS careers page — need a DevTools lookup |
 | **Custom / in-house site** | Boeing, Lockheed Martin, TSMC, Siemens, Honda, IBM, Verizon, Accenture, Bain, Deloitte (US), KPMG, GEODIS, Expeditors, Keysight, Coupa | bespoke scraper each |
 | **Workday but unreachable** | `qualcomm` (auth-gated), `seagate` + `dell` (custom domain), `lilly` (tenant bot-blocks CXS) | n/a |
 

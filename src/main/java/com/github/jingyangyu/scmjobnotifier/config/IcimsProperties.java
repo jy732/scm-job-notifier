@@ -43,16 +43,18 @@ public class IcimsProperties {
             return String.format("https://%s.icims.com", subdomain);
         }
 
-        /** Returns the search API URL with pagination. */
-        public String searchUrl(int limit, int offset) {
-            return String.format(
-                    "%s/jobs/search?pr=%d&o=%d&mode=job&iis=Job+Listing&schemaId=&in_iframe=1",
-                    baseUrl(), limit, offset);
+        /**
+         * Returns the legacy job-search fragment URL for a page. iCIMS {@code pr} is a 0-indexed
+         * page number (~50 jobs/page); {@code in_iframe=1} returns the compact server-rendered list
+         * we parse over plain HTTP (no browser needed).
+         */
+        public String searchUrl(int page) {
+            return String.format("%s/jobs/search?pr=%d&in_iframe=1", baseUrl(), page);
         }
 
-        /** Returns the public URL for a specific job. */
-        public String jobUrl(String jobId) {
-            return String.format("%s/jobs/%s/job", baseUrl(), jobId);
+        /** Returns the public detail-page URL for a specific job. */
+        public String jobUrl(String jobId, String slug) {
+            return String.format("%s/jobs/%s/%s/job", baseUrl(), jobId, slug);
         }
     }
 }
