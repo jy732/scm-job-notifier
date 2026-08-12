@@ -13,7 +13,7 @@ SCM track ENTRY_LEVEL / INTERNSHIP / UNSURE), **location** (US → California on
 > 📨 **Receiving the alert emails and not an engineer?** See the plain-language guide:
 > [中文使用说明 (Chinese guide for email recipients)](README.zh-CN.md).
 
-**Status:** implemented, building, and verified end-to-end. A full poll runs all 119 companies (115
+**Status:** implemented, building, and verified end-to-end. A full poll runs all 121 companies (117
 config-driven across 8 ATS platforms + 4 bespoke) in ~6 min.
 
 ---
@@ -23,7 +23,7 @@ config-driven across 8 ATS platforms + 4 bespoke) in ~6 min.
 A single Spring Boot process runs four scheduled jobs against a file-based H2 database. The main poll
 cycle:
 
-1. **Scrape** — every 15 min, polls 115 config-driven companies (8 ATS platforms) plus 4 bespoke
+1. **Scrape** — every 15 min, polls 117 config-driven companies (8 ATS platforms) plus 4 bespoke
    single-company scrapers (Amazon, Microsoft, Apple, Tesla) using an 8-thread pool (3-min
    per-company timeout). **Greenhouse and Workday** fetch metadata only and defer descriptions to post-dedup;
    **Lever / Ashby / SmartRecruiters / OracleCloud** bundle descriptions into the list response (no
@@ -146,7 +146,7 @@ The daily 8 AM summary uses the same layout.
 
 ## Supported Platforms & Companies
 
-115 config-driven companies across 8 ATS platforms (all verified against the live ATS API as of Aug
+117 config-driven companies across 8 ATS platforms (all verified against the live ATS API as of Aug
 2026), plus 4 bespoke single-company scrapers.
 
 **Bold** = surfaced ≥1 notifiable (entry-level / internship / unsure) CA SCM role in the Aug 2026 test
@@ -159,7 +159,7 @@ polls; the rest scrape clean but haven't produced a matching opening yet. The tr
 | **Greenhouse** | Boards JSON API | 26 | **flexport**, lucidmotors, nuro, samsara, **doordashusa**, instacart, **waymo**, **andurilindustries**, **spacex**, uberfreight, **aloyoga**, **carvana**, **shein**, **rocketlab**, **relativity**, **figureai**, **nerostechnologies**, leolabsinc, **flyzipline**, **vast**, **harbingermotors**, skyryse, sambanovasystems, revolutionmedicines, **purestorage**, **fashionnova** |
 | **Lever** | Postings JSON API | 8 | **zoox**, veeva, aeratechnology, velo3d, **penumbrainc**, **ambirobotics**, **orcabiosystems**, gopuff |
 | **Ashby** | Posting JSON API | 8 | openai, snowflake, **1x**, **mach**, **gritt**, **northwoodspace**, **crusoe**, plasmidsaurus |
-| **SmartRecruiters** | Postings JSON API | 2 | **WesternDigital**, AbbVie |
+| **SmartRecruiters** | Postings JSON API | 4 | **WesternDigital**, AbbVie, MattelInc, **Intuitive** |
 | **OracleCloud** | Recruiting REST API | 4 | fortinet, honeywell, oracle, albertsons |
 | **SuccessFactors** | CSB tile-search HTML | 1 | sap |
 | **iCIMS** | legacy fragment HTML | 1 | **ait** |
@@ -187,7 +187,7 @@ unlock a whole batch:
 | Blocker | Deferred companies | Unlock |
 |---------|--------------------|--------|
 | **SAP SuccessFactors** | Bayer, Nestlé, Colgate-Palmolive, ExxonMobil, Williams-Sonoma, Ross Stores (Schneider → migrated to Jibe) | adapter built (validated on SAP); each tenant's CSB host must be reverse-engineered — most aren't at obvious hosts |
-| **Phenom** | bio-rad, Mattel, Intuitive Surgical, The Wonderful Company, Rivian, L'Oréal, Cummins | Phenom adapter |
+| **~~Phenom~~ (mislabeled)** | On verification none were Phenom: Mattel + Intuitive Surgical → SmartRecruiters (now added); Rivian → iCIMS/Jibe; L'Oréal → Avature; Cummins, Bio-Rad, The Wonderful Company → custom | no Phenom targets exist — per-ATS |
 | **Eightfold** | Lam Research, Kroger (Ralphs) | Eightfold adapter |
 | **iCIMS** | General Atomics, Hyundai Mobis (AIT Worldwide now added) | adapter built (HTTP); these two hide their subdomain behind a JS careers page — need a DevTools lookup |
 | **Custom / in-house site** | Boeing, Lockheed Martin, TSMC, Siemens, Honda, IBM, Verizon, Accenture, Bain, Deloitte (US), KPMG, GEODIS, Expeditors, Keysight, Coupa | bespoke scraper each |

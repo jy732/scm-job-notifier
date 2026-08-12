@@ -468,7 +468,7 @@ OTHER  →  never emailed</code></pre>
   Target employers shift from tech-heavy to <strong>SCM-heavy, California-relevant</strong> firms. The list below is
   <strong>live in <code>application.properties</code> and verified end-to-end</strong> (Aug 2026): every slug/param was
   probed against the live ATS API and confirmed to return jobs, and a full poll runs all of them with zero scrape
-  failures. <strong>115 direct-config employers</strong> (65 Workday + 26 Greenhouse + 8 Lever + 8 Ashby + 2 SmartRecruiters
+  failures. <strong>117 direct-config employers</strong> (65 Workday + 26 Greenhouse + 8 Lever + 8 Ashby + 4 SmartRecruiters
   + 4 OracleCloud + 1 SuccessFactors + 1 iCIMS) plus 4 bespoke single-company scrapers (Amazon, Microsoft, Apple, Tesla). The employer set was
   grown via a strict "has a real California office" pass across tech / semiconductor / pharma / CPG / auto / aerospace /
   consulting / 3PL names; only those on a scrapeable ATS (Workday / Greenhouse / Lever / Ashby / SmartRecruiters /
@@ -578,7 +578,7 @@ OTHER  →  never emailed</code></pre>
   <tr><td><strong>Fashion Nova</strong></td><td>Los Angeles</td><td>fashionnova</td></tr>
 </table>
 
-<h4>Lever (8), Ashby (8), SmartRecruiters (2), OracleCloud (4), SuccessFactors (1), iCIMS (1)</h4>
+<h4>Lever (8), Ashby (8), SmartRecruiters (4), OracleCloud (4), SuccessFactors (1), iCIMS (1)</h4>
 <table>
   <tr><th>Platform</th><th>Employer</th><th>Location</th><th>Identifier</th></tr>
   <tr><td rowspan="8">Lever</td><td><strong>Zoox (AV)</strong></td><td>Foster City</td><td>zoox</td></tr>
@@ -597,8 +597,10 @@ OTHER  →  never emailed</code></pre>
   <tr><td><strong>Northwood Space</strong></td><td>El Segundo</td><td>northwoodspace</td></tr>
   <tr><td><strong>Crusoe</strong> (AI infra)</td><td>San Francisco</td><td>crusoe</td></tr>
   <tr><td>Plasmidsaurus (biotech)</td><td>South San Francisco</td><td>plasmidsaurus</td></tr>
-  <tr><td rowspan="2">SmartRecruiters</td><td><strong>Western Digital</strong></td><td>San Jose</td><td>WesternDigital</td></tr>
+  <tr><td rowspan="4">SmartRecruiters</td><td><strong>Western Digital</strong></td><td>San Jose</td><td>WesternDigital</td></tr>
   <tr><td>AbbVie</td><td>South San Francisco</td><td>AbbVie</td></tr>
+  <tr><td>Mattel (CPG/toys)</td><td>El Segundo</td><td>MattelInc</td></tr>
+  <tr><td><strong>Intuitive Surgical</strong> (medtech)</td><td>Sunnyvale</td><td>Intuitive</td></tr>
   <tr><td rowspan="4">OracleCloud</td><td>Fortinet</td><td>Sunnyvale</td><td>edel / us2 / CX_2001</td></tr>
   <tr><td>Honeywell</td><td>Torrance (ISC)</td><td>ibqbjb / ocs / Honeywell</td></tr>
   <tr><td>Oracle</td><td>Redwood Shores</td><td>eeho / us2 / jobsearch</td></tr>
@@ -654,13 +656,11 @@ OTHER  →  never emailed</code></pre>
   <tr><td>ExxonMobil</td><td>Energy</td></tr>
   <tr><td>Williams-Sonoma</td><td>Retail</td></tr>
   <tr><td>Ross Stores</td><td>Retail</td></tr>
-  <tr><td rowspan="7">Phenom</td><td>Bio-Rad</td><td>Life sciences</td><td rowspan="7">Phenom adapter</td></tr>
-  <tr><td>Mattel</td><td>CPG / toys</td></tr>
-  <tr><td>Intuitive Surgical</td><td>MedTech</td></tr>
-  <tr><td>The Wonderful Company</td><td>CPG / food &amp; bev</td></tr>
-  <tr><td>Rivian</td><td>Automotive / EV</td></tr>
-  <tr><td>L'Oréal</td><td>CPG / beauty</td></tr>
-  <tr><td>Cummins</td><td>Industrial</td></tr>
+  <tr><td rowspan="5">"Phenom" — mislabeled (none actually Phenom on verification 2026-08-11)</td><td>Rivian</td><td>Automotive / EV</td><td>iCIMS/Jibe — needs Jibe adapter</td></tr>
+  <tr><td>L'Oréal</td><td>CPG / beauty</td><td>Avature adapter</td></tr>
+  <tr><td>Cummins</td><td>Industrial</td><td>custom / bespoke</td></tr>
+  <tr><td>Bio-Rad</td><td>Life sciences</td><td>custom / bespoke</td></tr>
+  <tr><td>The Wonderful Company</td><td>CPG / food &amp; bev</td><td>custom / bespoke</td></tr>
   <tr><td rowspan="2">Eightfold</td><td>Lam Research</td><td>Semiconductor</td><td rowspan="2">Eightfold adapter</td></tr>
   <tr><td>Kroger (Ralphs)</td><td>Retail / grocery</td></tr>
   <tr><td>iCIMS</td><td>AIT Worldwide Logistics</td><td>3PL / logistics</td><td>iCIMS adapter (config hooks stubbed)</td></tr>
