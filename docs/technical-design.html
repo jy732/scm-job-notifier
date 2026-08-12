@@ -627,10 +627,10 @@ OTHER  →  never emailed</code></pre>
   <code>JobScraper</code> interface (single synthetic company <code>adzuna</code>), so it reuses the entire pipeline —
   CA/SCM filters, dedup, classifier, email — for free. It is <strong>additive only</strong> (excludes any employer already
   covered by a direct scraper, matched against all configured slugs + aliases), <strong>self-throttled</strong> (hits the API
-  once per <code>throttle-minutes</code>=60, ~192 calls/day, under the free tier), and <strong>tagged</strong>
+  once per <code>throttle-minutes</code>=240 (4 h), 30 phrases × 6 runs ≈ 180 calls/day, under the free tier), and <strong>tagged</strong>
   <code>source="adzuna"</code> so postings render in a <em>separate</em> email section. Trade-off: breadth over freshness
   (Adzuna lags hours–days; snippet-only descriptions — title + snippet + Gemini still classify). Verified live: one fetch →
-  203 long-tail candidates → 102 CA → 52 SCM-relevant → 46 notifiable at employers outside the monitored set.
+  989 raw → 683 long-tail → 370 CA → 190 SCM-relevant → 168 notifiable at employers outside the monitored set.
 </p>
 <p>
   <strong>SuccessFactors adapter:</strong> SF has no public JSON API (OData is per-tenant OAuth-gated), so this scrapes the

@@ -236,14 +236,14 @@ pipeline (CA/SCM filters, dedup, classifier, email). Design:
 
 - **Additive only** — excludes any employer already covered by a direct scraper (built from all
   configured slugs + aliases), so it never duplicates their jobs; it's purely the long-tail net.
-- **Self-throttled** — participates in the poll but only hits the API every `throttle-minutes` (60),
-  staying under the ~250 calls/day free tier (~8 queries × 24 h ≈ 192 calls/day).
+- **Self-throttled** — participates in the poll but only hits the API every `throttle-minutes` (240 = 4 h),
+  staying under the ~250 calls/day free tier (30 phrases × 6 runs/day ≈ 180 calls/day).
 - **Separate email section** — every Adzuna posting is tagged `source="adzuna"` and rendered in its
   own "Additional postings via Adzuna" table, below the directly-monitored postings.
 - **Trade-off** — breadth over freshness: Adzuna lags hours–days and gives snippet-only descriptions
   (title + snippet + Gemini still classify). Disabled automatically if the API keys are blank.
 
-_Verified: one live fetch → 203 long-tail candidates → 102 CA → 52 SCM-relevant → 46 notifiable at long-tail
+_Verified: one live fetch → 989 raw → 683 long-tail → 370 CA → 190 SCM-relevant → 168 notifiable at long-tail
 employers outside the directly-monitored set._
 
 > **Playwright note:** Tesla and Apple use a headless Chromium browser (Playwright). This pushes the
@@ -380,7 +380,7 @@ All settings live in `src/main/resources/application.properties`:
 | `job.companies.{greenhouse,lever,ashby,smartrecruiters}` | populated | comma-separated slugs |
 | `job.workday.companies[n].*` / `job.oraclecloud.companies[n].*` / `job.icims.companies[n].*` | populated | indexed ATS configs |
 | `job.adzuna.enabled` / `app-id` / `app-key` | `true` / `${ADZUNA_APP_ID:}` / `${ADZUNA_APP_KEY:}` | Adzuna aggregator source (off if keys blank) |
-| `job.adzuna.throttle-minutes` / `max-days-old` / `pages` | `60` / `30` / `1` | Adzuna cadence + query window |
+| `job.adzuna.throttle-minutes` / `max-days-old` / `pages` | `240` / `30` / `1` | Adzuna cadence + query window |
 
 ## Tech Stack
 
