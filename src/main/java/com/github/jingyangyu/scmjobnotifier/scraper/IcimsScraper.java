@@ -56,8 +56,13 @@ public class IcimsScraper implements JobScraper {
                     "Location(?:s| : Location)?</span>\\s*<span[^>]*>\\s*([^<]+?)\\s*</span>",
                     Pattern.DOTALL);
 
-    /** iCIMS location shape {@code US-CA-San Diego}; normalized to {@code San Diego, CA}. */
-    private static final Pattern US_LOCATION = Pattern.compile("^US-([A-Z]{2})-(.+)$");
+    /**
+     * iCIMS location shape {@code US-CA-San Diego}; normalized to {@code San Diego, CA}. The optional
+     * trailing {@code , ST} absorbs the redundant suffix iCIMS sometimes appends ({@code
+     * US-CA-San Bernadino, CA}) so we don't double it.
+     */
+    private static final Pattern US_LOCATION =
+            Pattern.compile("^US-([A-Z]{2})-(.+?)(?:,\\s*[A-Z]{2})?$");
 
     /** Job-description container on the detail fragment, tried in order. */
     private static final Pattern[] DESCRIPTION_MARKERS = {
@@ -163,11 +168,34 @@ public class IcimsScraper implements JobScraper {
         while (lm.find()) {
             raw = lm.group(1).trim(); // keep the last (closest) match
         }
-        if (raw.isEmpty()) {
+        return normalizeLocation(raw);
+    }
+
+    /**
+     * Cleans an iCIMS location value: unescapes entities, collapses whitespace, and normalizes each
+     * segment. Multi-location postings arrive as a {@code |}-separated blend of bare cities and raw
+     * {@code US-ST-City} fragments (often duplicated, with {@code &nbsp;}), e.g. {@code "Columbus&nbsp;
+     * | US-OH-West Columbus | US-OH-West Columbus | US-OH-Dublin, OH"}. We turn each into {@code City,
+     * ST}, drop duplicates, and rejoin — "Columbus | West Columbus, OH | Dublin, OH". The state token
+     * is preserved so the California filter still matches CA cities not in its explicit list.
+     */
+    private static String normalizeLocation(String raw) {
+        String cleaned = unescape(raw).replaceAll("\\s+", " ").replaceAll("\\s+,", ",").trim();
+        if (cleaned.isEmpty()) {
             return "";
         }
-        Matcher us = US_LOCATION.matcher(raw);
-        return us.matches() ? us.group(2) + ", " + us.group(1) : raw;
+        List<String> parts = new ArrayList<>();
+        for (String part : cleaned.split("\\s*\\|\\s*")) {
+            String seg = part.trim();
+            Matcher us = US_LOCATION.matcher(seg);
+            if (us.matches()) {
+                seg = us.group(2).trim() + ", " + us.group(1);
+            }
+            if (!seg.isEmpty() && !parts.contains(seg)) {
+                parts.add(seg);
+            }
+        }
+        return String.join(" | ", parts);
     }
 
     private String fetch(String url) {

@@ -229,10 +229,17 @@ public class ScrapeTestController {
                             a[2]++;
                         }
                         totalJobs++;
+                        // Real employer per job (j.getCompany()), not the config/loop company —
+                        // for synthetic multi-employer scrapers (adzuna, amazon, apple) the loop
+                        // company is a placeholder, so use it only as a fallback.
+                        String employer =
+                                j.getCompany() == null || j.getCompany().isBlank()
+                                        ? company
+                                        : j.getCompany();
                         w.write(
                                 csvCell(platform)
                                         + ","
-                                        + csvCell(company)
+                                        + csvCell(employer)
                                         + ","
                                         + (ca ? "1" : "0")
                                         + ","

@@ -32,7 +32,10 @@ for a in "$@"; do
   esac
 done
 
-cleanup() { pkill -9 -f "$PATTERN" >/dev/null 2>&1 && echo "✓ test instance stopped"; }
+# Only ever kill the instance THIS script started (scoped to APP_PID) — a broad
+# `pkill -f "$PATTERN"` here would reach across and kill an unrelated app/audit run.
+APP_PID=""
+cleanup() { [ -n "$APP_PID" ] && kill -9 "$APP_PID" >/dev/null 2>&1 && echo "✓ test instance stopped"; }
 trap cleanup EXIT
 
 # 1) Free the port / stop any live instance (this would otherwise send real email).
@@ -53,6 +56,7 @@ nohup java -jar "$JAR" \
   --job.summary.cron="$NEVER" \
   --job.poll.cron="$NEVER" \
   --job.adzuna.throttle-minutes=0 > "$LOG" 2>&1 &
+APP_PID=$!   # scope the exit-trap kill to just this instance
 for _ in $(seq 1 120); do
   grep -q "Started ScmJobNotifierApplication" "$LOG" 2>/dev/null && { echo "✓ started"; break; }
   grep -qi "APPLICATION FAILED TO START" "$LOG" 2>/dev/null && { echo "✗ startup failed — see $LOG"; tail -20 "$LOG"; exit 1; }
