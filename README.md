@@ -238,8 +238,13 @@ pipeline (CA/SCM filters, dedup, classifier, email). Design:
   configured slugs + aliases), so it never duplicates their jobs; it's purely the long-tail net.
 - **Self-throttled** — participates in the poll but only hits the API every `throttle-minutes` (240 = 4 h),
   staying under the ~250 calls/day free tier (30 phrases × 6 runs/day ≈ 180 calls/day).
-- **Separate email section** — every Adzuna posting is tagged `source="adzuna"` and rendered in its
-  own "Additional postings via Adzuna" table, below the directly-monitored postings.
+- **Separate email section** — every Adzuna posting is tagged `source="adzuna"` and rendered in its own
+  "Additional postings via Adzuna (third-party API · pending migration)" table, below the directly-monitored
+  postings, clearly flagged as aggregator data pending migration.
+- **Discovery → migration** — Adzuna doubles as a discovery feed: employers it surfaces that run a
+  supported ATS get **migrated to a direct scraper** (full-board coverage vs Adzuna's thin sample, and
+  Adzuna then excludes them). See the `migrate-companies` skill (`scripts/ats-detect.sh` +
+  `scripts/test-poll.sh`) for the verify → wire-in → test-poll → pre/post-diff workflow.
 - **Trade-off** — breadth over freshness: Adzuna lags hours–days and gives snippet-only descriptions
   (title + snippet + Gemini still classify). Disabled automatically if the API keys are blank.
 

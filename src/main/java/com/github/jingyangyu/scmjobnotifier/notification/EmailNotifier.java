@@ -189,9 +189,11 @@ public class EmailNotifier {
         if (!adzuna.isEmpty()) {
             sb.append(
                     buildSection(
-                            "Additional postings via Adzuna (broader CA sources)",
-                            "Aggregated from job boards for employers we don't monitor directly —"
-                                    + " verify details on the linked page.",
+                            "Additional postings via Adzuna (third-party API · pending migration)",
+                            "Sourced from the Adzuna aggregator API for employers not yet on our"
+                                    + " direct ATS scrapers — these are pending migration to direct"
+                                    + " monitoring, so details may be less precise; verify on the"
+                                    + " linked page.",
                             adzuna));
         }
         return sb.toString();

@@ -179,6 +179,13 @@ public class WorkdayScraper implements JobScraper {
         String title = (String) posting.getOrDefault("title", "");
         String externalPath = (String) posting.getOrDefault("externalPath", "");
         String location = (String) posting.getOrDefault("locationsText", "");
+        // Multi-location postings report a useless summary ("2 Locations") instead of a city, which
+        // would slip past the California filter. Workday embeds the PRIMARY location in the
+        // externalPath (/job/{Location-Slug}/{title}_{id}), so fall back to that when locationsText
+        // isn't a real place — e.g. "/job/Woodland-Hills-California/..." -> "Woodland Hills California".
+        if (location.isBlank() || location.matches("(?i)\\d+\\s+locations?")) {
+            location = locationFromPath(externalPath);
+        }
         // Metadata only — the description is deferred to fetchDescriptions() (post-dedup) so we
         // don't hammer Workday with one detail request per job (which triggers HTTP 429). None of
         // the pre-filters (freshness/exclude/California/SCM) need the description.
@@ -195,6 +202,32 @@ public class WorkdayScraper implements JobScraper {
                 .detectedAt(Instant.now())
                 .notified(false)
                 .build();
+    }
+
+    /**
+     * Derives a human location from a Workday {@code externalPath} like {@code
+     * /job/Woodland-Hills-California/Analyst--Transportation_UMG-27299} — the second path segment is
+     * the <em>primary</em> location slug (hyphens → spaces). Used as a fallback for multi-location
+     * postings whose {@code locationsText} is only a count ("2 Locations").
+     *
+     * <p>Known limitation: this yields only the primary location. A multi-location role whose primary
+     * is out-of-state but whose secondary is California is still dropped by the CA filter — the full
+     * location list lives only on the per-job detail endpoint (deferred to avoid HTTP 429). Slug
+     * state encoding also varies by tenant ({@code ...-California} vs {@code US-CA-City}); the former
+     * matches on "california", the latter relies on the CA-cities list.
+     *
+     * @return the primary location, or "" if the path isn't the expected {@code /job/<loc>/...} shape
+     */
+    private static String locationFromPath(String externalPath) {
+        if (externalPath == null) {
+            return "";
+        }
+        String[] parts = externalPath.split("/");
+        // Expected: ["", "job", "<Location-Slug>", "<title>_<id>"]
+        if (parts.length >= 3 && "job".equals(parts[1])) {
+            return parts[2].replace('-', ' ').trim();
+        }
+        return "";
     }
 
     /**

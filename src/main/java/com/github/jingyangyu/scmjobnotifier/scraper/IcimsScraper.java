@@ -45,10 +45,15 @@ public class IcimsScraper implements JobScraper {
                             + "(?:<span[^>]*>[^<]*</span>\\s*)?<h3[^>]*>\\s*([^<]+?)\\s*</h3>",
                     Pattern.DOTALL);
 
-    /** The location span that precedes each job card. */
+    /**
+     * The location span that precedes each job card. iCIMS templates vary by tenant: some render
+     * the label as {@code Location : Location</span>} (AIT, Nikkiso), others as a plural {@code
+     * Locations</span>} (Snap-on). Both are followed by the value span, so we accept either label —
+     * otherwise a tenant's jobs parse with no location and get dropped by the California filter.
+     */
     private static final Pattern LOCATION =
             Pattern.compile(
-                    "Location : Location</span>\\s*<span[^>]*>\\s*([^<]+?)\\s*</span>",
+                    "Location(?:s| : Location)?</span>\\s*<span[^>]*>\\s*([^<]+?)\\s*</span>",
                     Pattern.DOTALL);
 
     /** iCIMS location shape {@code US-CA-San Diego}; normalized to {@code San Diego, CA}. */

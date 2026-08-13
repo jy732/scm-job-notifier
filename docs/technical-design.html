@@ -628,9 +628,22 @@ OTHER  →  never emailed</code></pre>
   CA/SCM filters, dedup, classifier, email — for free. It is <strong>additive only</strong> (excludes any employer already
   covered by a direct scraper, matched against all configured slugs + aliases), <strong>self-throttled</strong> (hits the API
   once per <code>throttle-minutes</code>=240 (4 h), 30 phrases × 6 runs ≈ 180 calls/day, under the free tier), and <strong>tagged</strong>
-  <code>source="adzuna"</code> so postings render in a <em>separate</em> email section. Trade-off: breadth over freshness
+  <code>source="adzuna"</code> so postings render in a <em>separate</em> email section, labeled
+  <em>"Additional postings via Adzuna (third-party API &middot; pending migration)"</em> to flag them as
+  aggregator data. Trade-off: breadth over freshness
   (Adzuna lags hours–days; snippet-only descriptions — title + snippet + Gemini still classify). Verified live: one fetch →
   989 raw → 683 long-tail → 370 CA → 190 SCM-relevant → 168 notifiable at employers outside the monitored set.
+</p>
+<p>
+  <strong>Discovery &rarr; migration.</strong> Adzuna also serves as a discovery feed: employers it surfaces that turn out to
+  run a <em>supported</em> ATS are <strong>migrated to a direct scraper</strong> — full-board coverage instead of Adzuna's thin
+  per-employer sample, and Adzuna then excludes them (the exclude set is built from the same config lists, matched against the
+  Adzuna employer string, so no cross-source duplication). The verification method matters: <code>ats-detect.sh</code> probes each
+  ATS with a reliable discriminator rather than slug-guessing — SmartRecruiters and iCIMS both wildcard unknown IDs (require
+  <code>totalFound&gt;0</code> / real job markers), and Workday's edge answers <code>406</code> for any host, so tenants are
+  confirmed via the CXS trick (<code>POST /wday/cxs/{tenant}/ZZNOSITE/jobs</code> &rarr; <code>404</code> = exists,
+  <code>422</code> = not) with site ids read from <code>sitemap.xml</code>. See the <code>migrate-companies</code> skill for the
+  full verify &rarr; wire-in &rarr; test-poll &rarr; pre/post-diff workflow.
 </p>
 <p>
   <strong>SuccessFactors adapter:</strong> SF has no public JSON API (OData is per-tenant OAuth-gated), so this scrapes the

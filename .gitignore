@@ -43,3 +43,6 @@ logs/
 nohup.out
 polltest.log
 polltest-result.json
+audit-app.log
+audit-result.json
+location-audit.csv

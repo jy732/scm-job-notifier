@@ -4,10 +4,17 @@ import com.github.jingyangyu.scmjobnotifier.model.JobPosting;
 import com.github.jingyangyu.scmjobnotifier.notification.EmailNotifier;
 import com.github.jingyangyu.scmjobnotifier.scraper.JobScraper;
 import com.github.jingyangyu.scmjobnotifier.service.JobPollingService;
+import com.github.jingyangyu.scmjobnotifier.service.classification.JobTitleFilter;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -39,14 +46,17 @@ public class ScrapeTestController {
     private final List<JobScraper> scrapers;
     private final JobPollingService pollingService;
     private final EmailNotifier emailNotifier;
+    private final JobTitleFilter titleFilter;
 
     public ScrapeTestController(
             List<JobScraper> scrapers,
             JobPollingService pollingService,
-            EmailNotifier emailNotifier) {
+            EmailNotifier emailNotifier,
+            JobTitleFilter titleFilter) {
         this.scrapers = scrapers;
         this.pollingService = pollingService;
         this.emailNotifier = emailNotifier;
+        this.titleFilter = titleFilter;
     }
 
     /** Hardcoded test recipient — deliberately NOT the configured (real) NOTIFICATION_EMAIL. */
@@ -175,6 +185,90 @@ public class ScrapeTestController {
         long totalElapsed = System.currentTimeMillis() - totalStart;
         results.put("_totalElapsedMs", totalElapsed);
         return results;
+    }
+
+    /**
+     * Location-parsing audit: scrapes every configured company and writes one CSV row per job
+     * (platform, company, caDetected, location, title) to {@code ./location-audit.csv}, plus a
+     * per-company summary and a flag list. Surfaces tenants whose location parsing silently breaks —
+     * e.g. many jobs scraped but all locations blank, or lots of jobs yet zero California detected
+     * (the Snap-on / Workday-multi-location signatures). {@code POST /api/test/location-audit}.
+     */
+    @PostMapping("/location-audit")
+    public Mono<Map<String, Object>> locationAudit() {
+        return Mono.fromCallable(this::doLocationAudit).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    private Map<String, Object> doLocationAudit() {
+        log.info("Location audit triggered");
+        Path csv = Path.of("location-audit.csv");
+        Map<String, int[]> agg = new TreeMap<>(); // "platform/company" -> [jobs, blankLoc, caDetected]
+        int totalJobs = 0;
+        try (BufferedWriter w = Files.newBufferedWriter(csv, StandardCharsets.UTF_8)) {
+            w.write("platform,company,caDetected,location,title");
+            w.newLine();
+            for (JobScraper scraper : scrapers) {
+                String platform = scraper.platform();
+                for (String company : scraper.companies()) {
+                    List<JobPosting> jobs;
+                    try {
+                        jobs = scraper.scrape(company);
+                    } catch (Exception e) {
+                        log.warn("audit: scrape failed {}/{}: {}", platform, company, e.getMessage());
+                        continue;
+                    }
+                    int[] a = agg.computeIfAbsent(platform + "/" + company, k -> new int[3]);
+                    for (JobPosting j : jobs) {
+                        String loc = j.getLocation() == null ? "" : j.getLocation();
+                        boolean ca = titleFilter.isCaliforniaLocation(j);
+                        a[0]++;
+                        if (loc.isBlank()) {
+                            a[1]++;
+                        }
+                        if (ca) {
+                            a[2]++;
+                        }
+                        totalJobs++;
+                        w.write(
+                                csvCell(platform)
+                                        + ","
+                                        + csvCell(company)
+                                        + ","
+                                        + (ca ? "1" : "0")
+                                        + ","
+                                        + csvCell(loc)
+                                        + ","
+                                        + csvCell(j.getTitle() == null ? "" : j.getTitle()));
+                        w.newLine();
+                    }
+                }
+            }
+        } catch (IOException e) {
+            return Map.of("error", e.getMessage());
+        }
+        // Flag the two silent-drop signatures for human review.
+        List<String> parseLikelyBroken = new java.util.ArrayList<>();
+        List<String> zeroCaWorthChecking = new java.util.ArrayList<>();
+        for (Map.Entry<String, int[]> e : agg.entrySet()) {
+            int jobs = e.getValue()[0], blank = e.getValue()[1], ca = e.getValue()[2];
+            if (jobs >= 10 && blank * 2 > jobs) {
+                parseLikelyBroken.add(e.getKey() + " — " + blank + "/" + jobs + " blank locations");
+            } else if (jobs >= 20 && ca == 0) {
+                zeroCaWorthChecking.add(e.getKey() + " — " + jobs + " jobs, 0 CA");
+            }
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("csv", csv.toAbsolutePath().toString());
+        out.put("totalJobs", totalJobs);
+        out.put("companies", agg.size());
+        out.put("parseLikelyBroken", parseLikelyBroken);
+        out.put("zeroCaWorthChecking", zeroCaWorthChecking);
+        return out;
+    }
+
+    /** CSV cell: quote-wrapped, embedded quotes doubled, newlines flattened. */
+    private static String csvCell(String s) {
+        return "\"" + s.replace("\"", "\"\"").replace('\n', ' ').replace('\r', ' ') + "\"";
     }
 
     /**
