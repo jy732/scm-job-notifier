@@ -46,3 +46,4 @@ polltest-result.json
 audit-app.log
 audit-result.json
 location-audit.csv
+verify.log
