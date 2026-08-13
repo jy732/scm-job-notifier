@@ -80,7 +80,9 @@ public class AdzunaScraper implements JobScraper {
                     Map.entry("vwr", "avantor"),
                     Map.entry("pbv", "pepsico"),
                     Map.entry("bdgrowers", "blue diamond"),
-                    Map.entry("roche", "genentech"),
+                    // Roche's corporate Workday (roche.wd3/ROG-A2O-GENE) is already scraped as
+                    // "genentech"; add "roche" as its own token so Adzuna's "Roche" rows dedup too.
+                    Map.entry("roche", "roche"),
                     Map.entry("ngc", "northrop"),
                     Map.entry("globalhr", "raytheon"),
                     Map.entry("synnex", "hyve"),

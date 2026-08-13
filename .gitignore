@@ -47,3 +47,8 @@ audit-app.log
 audit-result.json
 location-audit.csv
 verify.log
+fix.log
+repro.log
+fixpoll.json
+repro-poll.json
+audit2-result.json

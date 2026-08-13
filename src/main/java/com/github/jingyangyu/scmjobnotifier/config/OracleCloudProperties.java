@@ -58,7 +58,11 @@ public class OracleCloudProperties {
                             + "&finder=findReqs;siteNumber=%s,facetsList=LOCATIONS%%3B"
                             + "WORK_LOCATIONS%%3BWORKPLACE_TYPES%%3BTITLES%%3BCATEGORIES%%3B"
                             + "ORGANIZATIONS%%3BPOSTING_DATES%%3BFLEX_FIELDS"
-                            + "&limit=%d&offset=%d",
+                            // limit/offset MUST live inside the finder clause — Oracle CE ignores
+                            // top-level &limit=&offset= params and returns page 0 every time, so the
+                            // scraper only ever saw each board's first PAGE_SIZE jobs (all others,
+                            // incl. every SCM role, silently dropped).
+                            + ",limit=%d,offset=%d",
                     baseUrl(), siteNumber, limit, offset);
         }
 
