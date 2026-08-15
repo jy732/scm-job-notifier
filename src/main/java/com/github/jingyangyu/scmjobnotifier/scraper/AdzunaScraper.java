@@ -3,6 +3,7 @@ package com.github.jingyangyu.scmjobnotifier.scraper;
 import com.github.jingyangyu.scmjobnotifier.config.AdzunaProperties;
 import com.github.jingyangyu.scmjobnotifier.config.IcimsProperties;
 import com.github.jingyangyu.scmjobnotifier.config.OracleCloudProperties;
+import com.github.jingyangyu.scmjobnotifier.config.PaylocityProperties;
 import com.github.jingyangyu.scmjobnotifier.config.SuccessFactorsProperties;
 import com.github.jingyangyu.scmjobnotifier.config.WorkdayProperties;
 import com.github.jingyangyu.scmjobnotifier.model.JobPosting;
@@ -112,6 +113,7 @@ public class AdzunaScraper implements JobScraper {
             OracleCloudProperties oracle,
             IcimsProperties icims,
             SuccessFactorsProperties sf,
+            PaylocityProperties paylocity,
             @Value("${job.companies.greenhouse:}") String greenhouse,
             @Value("${job.companies.lever:}") String lever,
             @Value("${job.companies.ashby:}") String ashby,
@@ -120,7 +122,8 @@ public class AdzunaScraper implements JobScraper {
         this.props = props;
         this.excludeTokens =
                 buildExcludeTokens(
-                        workday, oracle, icims, sf, greenhouse, lever, ashby, smartrecruiters);
+                        workday, oracle, icims, sf, paylocity, greenhouse, lever, ashby,
+                        smartrecruiters);
         log.info(
                 "Adzuna scraper initialized (configured={}, {} exclude tokens, throttle={}m)",
                 props.isConfigured(),
@@ -133,6 +136,7 @@ public class AdzunaScraper implements JobScraper {
             OracleCloudProperties oracle,
             IcimsProperties icims,
             SuccessFactorsProperties sf,
+            PaylocityProperties paylocity,
             String greenhouse,
             String lever,
             String ashby,
@@ -142,6 +146,7 @@ public class AdzunaScraper implements JobScraper {
         oracle.getCompanies().forEach(c -> addToken(tokens, c.getName()));
         icims.getCompanies().forEach(c -> addToken(tokens, c.getName()));
         sf.getCompanies().forEach(c -> addToken(tokens, c.getName()));
+        paylocity.getCompanies().forEach(c -> addToken(tokens, c.getName()));
         for (String csv : List.of(greenhouse, lever, ashby, smartrecruiters)) {
             for (String slug : csv.split(",")) {
                 addToken(tokens, slug);
