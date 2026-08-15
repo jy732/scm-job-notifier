@@ -19,6 +19,7 @@ import java.util.TreeMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
@@ -106,6 +107,29 @@ public class ScrapeTestController {
                             boolean sent = emailNotifier.sendTestAlert(sample, TEST_EMAIL_TO);
                             return Map.<String, Object>of(
                                     "sent", sent, "to", TEST_EMAIL_TO, "sampleJobs", sample.size());
+                        })
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Sends a product/phase-update announcement (mascot header + the provided HTML). Reusable — the
+     * content comes in the request body, not from code. Body:
+     * {@code {"subject":"…","html":"…","to":"…"}}. If {@code to} is omitted/blank it goes to the
+     * hardcoded test address {@value #TEST_EMAIL_TO} (safe dry-run); the {@code phase-update} skill
+     * drafts the HTML, gets the user's review, then re-sends with the real recipient only on OK.
+     * {@code POST /api/test/announcement}.
+     */
+    @PostMapping("/announcement")
+    public Mono<Map<String, Object>> sendAnnouncement(@RequestBody Map<String, String> body) {
+        return Mono.fromCallable(
+                        () -> {
+                            String toParam = body.get("to");
+                            String to =
+                                    toParam == null || toParam.isBlank() ? TEST_EMAIL_TO : toParam;
+                            String subject = body.getOrDefault("subject", "更新通知");
+                            String html = body.getOrDefault("html", "");
+                            boolean sent = emailNotifier.sendAnnouncement(subject, html, to);
+                            return Map.<String, Object>of("sent", sent, "to", to);
                         })
                 .subscribeOn(Schedulers.boundedElastic());
     }

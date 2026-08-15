@@ -138,7 +138,7 @@ public class EmailNotifier {
         if (recentJobs.isEmpty()) {
             subject = "[SCM Summary] No new CA SCM postings in the last 24 hours";
             body =
-                    mascotHeader()
+                    summaryMascotHeader()
                             + "<p>No new California SCM entry-level/internship postings in the last"
                             + " 24 hours.</p>";
         } else {
@@ -146,7 +146,7 @@ public class EmailNotifier {
                     String.format(
                             "[SCM Summary] %d new CA SCM posting(s) in the last 24 hours",
                             recentJobs.size());
-            body = buildBody(recentJobs);
+            body = buildBody(recentJobs, summaryMascotHeader(), null);
         }
         try {
             sendHtmlEmail(subject, body, toAddresses);
@@ -180,16 +180,49 @@ public class EmailNotifier {
     }
 
     /**
+     * Sends a product/phase-update announcement (mascot header + the given HTML content) to an
+     * <b>explicit</b> address — a non-alert email used by the announcement endpoint. Callers pass
+     * the real recipient only on explicit intent; tests use the hardcoded test address.
+     *
+     * @return true if the email was sent successfully, false otherwise
+     */
+    public boolean sendAnnouncement(String subject, String contentHtml, String toAddress) {
+        if (toAddress == null || toAddress.isBlank()) {
+            return false;
+        }
+        try {
+            sendHtmlEmail(subject, announceMascotHeader() + contentHtml, new String[] {toAddress});
+            log.info("Announcement email sent to {}", toAddress);
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to send announcement to {}: {}", toAddress, e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
      * Builds the email body. Directly-scraped postings render in the main section; Adzuna-sourced
      * long-tail postings (source="adzuna") render in a separate, clearly-labeled section below.
      */
     private String buildBody(List<JobPosting> jobs) {
+        return buildBody(jobs, mascotHeader(), null);
+    }
+
+    /**
+     * Builds the email body with a caller-chosen mascot header and optional intro line — so the
+     * daily summary can use its own image ({@link #summaryMascotHeader}) and playful copy while
+     * alerts keep the working-Kitty header.
+     */
+    private String buildBody(List<JobPosting> jobs, String header, String intro) {
         List<JobPosting> direct =
                 jobs.stream().filter(j -> !"adzuna".equals(j.getSource())).toList();
         List<JobPosting> adzuna =
                 jobs.stream().filter(j -> "adzuna".equals(j.getSource())).toList();
         StringBuilder sb = new StringBuilder();
-        sb.append(mascotHeader());
+        sb.append(header);
+        if (intro != null) {
+            sb.append(intro);
+        }
         if (!direct.isEmpty()) {
             sb.append(buildSection("New SCM Postings (California)", null, direct));
         }
@@ -215,6 +248,28 @@ public class EmailNotifier {
         return "<div style='text-align:center;margin:4px 0 16px;'>"
                 + "<img src='cid:hellokitty' alt='Hello Kitty hard at work' width='170'"
                 + " style='image-rendering:pixelated;'/></div>";
+    }
+
+    /**
+     * Mascot for the 24-hour summary email — Hello Kitty at her desk with a stack of the day's
+     * printouts ({@code cid:hellokittyreport} → {@code hellokitty-report.png}, attached in {@link
+     * #sendHtmlEmail}).
+     */
+    private static String summaryMascotHeader() {
+        return "<div style='text-align:center;margin:4px 0 16px;'>"
+                + "<img src='cid:hellokittyreport' alt='Hello Kitty with the daily report' width='190'"
+                + " style='image-rendering:pixelated;'/></div>";
+    }
+
+    /**
+     * Mascot for announcement / phase-update emails — Hello Kitty holding a little note card
+     * ({@code cid:hellokittyannounce} → {@code hellokitty-announce.png}, attached in {@link
+     * #sendHtmlEmail}).
+     */
+    private static String announceMascotHeader() {
+        return "<div style='text-align:center;margin:4px 0 16px;'>"
+                + "<img src='cid:hellokittyannounce' alt='Hello Kitty with an announcement'"
+                + " width='190' style='image-rendering:pixelated;'/></div>";
     }
 
     /** Renders one titled section: a table with one row per job and a Type column. */
@@ -379,16 +434,31 @@ public class EmailNotifier {
                     helper.setTo(recipients);
                     helper.setSubject(subject);
                     helper.setText(htmlBody, true);
-                    // Inline Hello Kitty mascot (cid:hellokitty in the body). Must be added AFTER
-                    // setText. Best-effort — a missing image just leaves the alt text.
-                    ClassPathResource kitty = new ClassPathResource("hellokitty.png");
-                    if (kitty.exists()) {
-                        helper.addInline("hellokitty", kitty);
+                    // Inline the mascot the body references — cid:hellokitty for alerts,
+                    // cid:hellokittyreport for the 24h summary, cid:hellokittyannounce for
+                    // announcements. Must be added AFTER setText. Best-effort — a missing image just
+                    // leaves the alt text. (Check the longer cids first: "cid:hellokitty" is a
+                    // substring of both "cid:hellokittyreport" and "cid:hellokittyannounce".)
+                    if (htmlBody.contains("cid:hellokittyreport")) {
+                        addInline(helper, "hellokittyreport", "hellokitty-report.png");
+                    } else if (htmlBody.contains("cid:hellokittyannounce")) {
+                        addInline(helper, "hellokittyannounce", "hellokitty-announce.png");
+                    } else if (htmlBody.contains("cid:hellokitty")) {
+                        addInline(helper, "hellokitty", "hellokitty.png");
                     }
                     mailSender.send(message);
                     log.info("Email SENT successfully: {}", subject);
                     return null;
                 });
+    }
+
+    /** Adds a classpath image as an inline CID part, if the resource exists. */
+    private static void addInline(MimeMessageHelper helper, String cid, String resource)
+            throws MessagingException {
+        ClassPathResource img = new ClassPathResource(resource);
+        if (img.exists()) {
+            helper.addInline(cid, img);
+        }
     }
 
     private static String escape(String text) {
