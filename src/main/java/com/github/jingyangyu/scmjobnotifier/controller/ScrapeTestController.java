@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import lombok.extern.slf4j.Slf4j;
@@ -276,6 +277,102 @@ public class ScrapeTestController {
     /** CSV cell: quote-wrapped, embedded quotes doubled, newlines flattened. */
     private static String csvCell(String s) {
         return "\"" + s.replace("\"", "\"\"").replace('\n', ' ').replace('\r', ' ') + "\"";
+    }
+
+    /**
+     * End-to-end pre-filter audit: scrapes every company and records, per job, the outcome at each
+     * pipeline stage (freshness, exclude tier, California, SCM-relevance, auto-level) plus the final
+     * {@code disposition} — which stage dropped it, or {@code PASSED} (would reach Gemini/email).
+     * Writes {@code filter-audit.csv} and returns per-disposition counts. Deterministic (no Gemini
+     * calls); the Gemini stage is audited separately from its persisted decisions in H2. {@code POST
+     * /api/test/filter-audit}.
+     */
+    @PostMapping("/filter-audit")
+    public Mono<Map<String, Object>> filterAudit() {
+        return Mono.fromCallable(this::doFilterAudit).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    private Map<String, Object> doFilterAudit() {
+        log.info("Filter audit triggered");
+        Path csv = Path.of("filter-audit.csv");
+        Map<String, Integer> byDisposition = new TreeMap<>();
+        int total = 0;
+        try (BufferedWriter w = Files.newBufferedWriter(csv, StandardCharsets.UTF_8)) {
+            w.write(
+                    "platform,company,disposition,excludeReason,fresh,california,scmRelevant,"
+                            + "autoLevel,location,title");
+            w.newLine();
+            for (JobScraper scraper : scrapers) {
+                String platform = scraper.platform();
+                for (String company : scraper.companies()) {
+                    List<JobPosting> jobs;
+                    try {
+                        jobs = scraper.scrape(company);
+                    } catch (Exception e) {
+                        log.warn(
+                                "filter-audit: scrape failed {}/{}: {}",
+                                platform,
+                                company,
+                                e.getMessage());
+                        continue;
+                    }
+                    for (JobPosting j : jobs) {
+                        boolean fresh = titleFilter.isFresh(j);
+                        String reason = titleFilter.excludeReason(j);
+                        boolean ca = titleFilter.isCaliforniaLocation(j);
+                        boolean scm = titleFilter.isScmRelevant(j);
+                        String autoLevel = titleFilter.autoClassifyLevel(j);
+                        String disposition;
+                        if (!fresh) {
+                            disposition = "DROPPED_STALE";
+                        } else if (reason != null) {
+                            disposition =
+                                    "DROPPED_" + reason.toUpperCase(Locale.ROOT).replace('-', '_');
+                        } else if (!ca) {
+                            disposition = "DROPPED_NON_CA";
+                        } else if (!scm) {
+                            disposition = "DROPPED_NON_SCM";
+                        } else {
+                            disposition = "PASSED";
+                        }
+                        byDisposition.merge(disposition, 1, Integer::sum);
+                        total++;
+                        String employer =
+                                j.getCompany() == null || j.getCompany().isBlank()
+                                        ? company
+                                        : j.getCompany();
+                        w.write(
+                                csvCell(platform)
+                                        + ","
+                                        + csvCell(employer)
+                                        + ","
+                                        + csvCell(disposition)
+                                        + ","
+                                        + csvCell(reason == null ? "" : reason)
+                                        + ","
+                                        + (fresh ? "1" : "0")
+                                        + ","
+                                        + (ca ? "1" : "0")
+                                        + ","
+                                        + (scm ? "1" : "0")
+                                        + ","
+                                        + csvCell(autoLevel == null ? "" : autoLevel)
+                                        + ","
+                                        + csvCell(j.getLocation() == null ? "" : j.getLocation())
+                                        + ","
+                                        + csvCell(j.getTitle() == null ? "" : j.getTitle()));
+                        w.newLine();
+                    }
+                }
+            }
+        } catch (IOException e) {
+            return Map.of("error", e.getMessage());
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("csv", csv.toAbsolutePath().toString());
+        out.put("totalJobs", total);
+        out.put("byDisposition", byDisposition);
+        return out;
     }
 
     /**

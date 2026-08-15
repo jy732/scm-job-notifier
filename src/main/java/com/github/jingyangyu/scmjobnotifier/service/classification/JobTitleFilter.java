@@ -56,23 +56,36 @@ public class JobTitleFilter {
      * intentionally NOT excluded — they are a target track.
      */
     public boolean shouldExclude(JobPosting job) {
+        return excludeReason(job) != null;
+    }
+
+    /**
+     * Which exclude tier (if any) fires for this title, or {@code null} if it passes. Exposed for the
+     * filter audit so it can attribute drops; {@link #shouldExclude} is just {@code != null}.
+     *
+     * @return "seniority", "lead", "non-scm-role", "non-scm-technical", or null
+     */
+    public String excludeReason(JobPosting job) {
         String title = job.getTitle().toLowerCase(Locale.ROOT);
         if (FilterKeywords.EXCLUDE_KEYWORDS.stream().anyMatch(title::contains)) {
-            return true;
+            return "seniority";
         }
         if (FilterKeywords.EXCLUDE_LEAD_PATTERN.matcher(title).find()) {
-            return true;
+            return "lead";
         }
         // Hourly warehouse/clerical labor + materials-science/facilities roles that pass the SCM
         // keyword gate but aren't the professional SCM roles we target.
         if (FilterKeywords.NON_SCM_ROLE_KEYWORDS.stream().anyMatch(title::contains)) {
-            return true;
+            return "non-scm-role";
         }
         // Non-SCM technical role (engineer/scientist/developer) — excluded UNLESS the title carries
         // a strong SCM anchor, which keeps genuine SCM engineering roles (SQE, Supply Chain
         // Engineer, Sourcing Engineer) while dropping software/materials-science titles.
-        return FilterKeywords.NON_SCM_PATTERN.matcher(title).find()
-                && FilterKeywords.SCM_ANCHOR_KEYWORDS.stream().noneMatch(title::contains);
+        if (FilterKeywords.NON_SCM_PATTERN.matcher(title).find()
+                && FilterKeywords.SCM_ANCHOR_KEYWORDS.stream().noneMatch(title::contains)) {
+            return "non-scm-technical";
+        }
+        return null;
     }
 
     /**

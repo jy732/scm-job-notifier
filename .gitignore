@@ -53,3 +53,6 @@ fixpoll.json
 repro-poll.json
 audit2-result.json
 pl.log
+audit.log
+filter-audit.csv
+filter-audit-result.json

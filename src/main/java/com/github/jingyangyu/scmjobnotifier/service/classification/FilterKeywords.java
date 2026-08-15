@@ -178,7 +178,14 @@ final class FilterKeywords {
                     "material handler",
                     "import/export",
                     "supply chain operations",
-                    "warehouse operations");
+                    "warehouse operations",
+                    // master/production scheduling — core SCM planning the audit found was being
+                    // dropped. Kept specific so it catches "Master Scheduler"/"Production Scheduler"/
+                    // "Production Control" but NOT healthcare/project schedulers (surgery, imaging,
+                    // project scheduler), which correctly stay non-SCM.
+                    "master schedul",
+                    "production schedul",
+                    "production control");
 
     // ── Location: California detection ──
     // Matches ", CA" as a whole token (so it won't fire on "Canada"): comma, optional space, "ca",
