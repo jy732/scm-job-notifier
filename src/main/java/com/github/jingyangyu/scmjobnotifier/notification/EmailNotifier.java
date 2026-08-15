@@ -4,6 +4,7 @@ import com.github.jingyangyu.scmjobnotifier.model.JobPosting;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
@@ -89,8 +90,14 @@ public class EmailNotifier {
             return true;
         }
 
+        // Append a PT timestamp so every alert has a unique subject — otherwise two scans with the
+        // same job count produce byte-identical subjects and Gmail collapses them into one thread.
         String subject =
-                String.format("[SCM Job Alert] %d new CA SCM posting(s) detected", newJobs.size());
+                String.format(
+                        "[SCM Job Alert] %d new CA SCM posting(s) · %s",
+                        newJobs.size(),
+                        ZonedDateTime.now(ZoneId.of("America/Los_Angeles"))
+                                .format(DateTimeFormatter.ofPattern("MMM d, h:mm a")));
         log.info(
                 "Preparing job alert email: to={}, subject={}",
                 Arrays.toString(toAddresses),
