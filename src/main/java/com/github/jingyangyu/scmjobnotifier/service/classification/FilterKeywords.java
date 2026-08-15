@@ -44,6 +44,43 @@ final class FilterKeywords {
     // a strong ENTRY_LEVEL signal. \b after "lead" fails on "leadership" (followed by 'e').
     static final Pattern EXCLUDE_LEAD_PATTERN = Pattern.compile("(?i)\\blead\\b");
 
+    // ── Tier 1c: hourly-labor / non-SCM-role exclude ──
+    // Titles that pass the SCM keyword gate but aren't the professional/analytical SCM roles we
+    // target. Two groups: (1) hourly warehouse/distribution labor + clerical (matched "warehouse"/
+    // "material"/"distribution"); (2) materials-science/lab/machining and facilities/safety roles
+    // that only match via the broad "materials"/"planner" keywords. Deliberately keeps professional
+    // warehouse roles (Warehouse Coordinator/Analyst/Specialist) — those contain none of these.
+    static final List<String> NON_SCM_ROLE_KEYWORDS =
+            List.of(
+                    // hourly warehouse / distribution labor + clerical
+                    "material handler",
+                    "materials handler",
+                    "warehouse associate",
+                    "warehouse worker",
+                    "warehouse operator",
+                    "warehouse selector",
+                    "warehouse person",
+                    "warehouse general",
+                    "general warehouse",
+                    "hourly warehouse",
+                    "order selector",
+                    "order picker",
+                    "forklift",
+                    "stocker",
+                    "freight handler",
+                    "clerk",
+                    // materials-science / lab / machining (not supply-chain "materials")
+                    "materials lab",
+                    "material lab",
+                    "materials r&d",
+                    "materials characterization",
+                    "materials technician",
+                    "materials science",
+                    "machinist",
+                    // facilities / safety keyword mismatches
+                    "space planner",
+                    "hazardous materials");
+
     // ── Tier 1b: Non-SCM hard exclude (guarded) ──
     // Drop technical/IC roles (engineer/scientist/developer) that leak in when an ambiguous SCM
     // keyword appears in a software/hardware title (e.g. "Software Engineer, Autonomous Freight

@@ -63,6 +63,11 @@ public class JobTitleFilter {
         if (FilterKeywords.EXCLUDE_LEAD_PATTERN.matcher(title).find()) {
             return true;
         }
+        // Hourly warehouse/clerical labor + materials-science/facilities roles that pass the SCM
+        // keyword gate but aren't the professional SCM roles we target.
+        if (FilterKeywords.NON_SCM_ROLE_KEYWORDS.stream().anyMatch(title::contains)) {
+            return true;
+        }
         // Non-SCM technical role (engineer/scientist/developer) — excluded UNLESS the title carries
         // a strong SCM anchor, which keeps genuine SCM engineering roles (SQE, Supply Chain
         // Engineer, Sourcing Engineer) while dropping software/materials-science titles.

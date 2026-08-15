@@ -295,6 +295,7 @@ flowchart TD
   <tr><td>Interns</td><td class="diff-swe">intern (excluded)</td><td class="diff-scm">intern — <strong>allowed</strong></td></tr>
   <tr><td>Domain</td><td>frontend, mobile, iOS, Android, embedded, security</td><td>(n/a — SCM relevance handled by 5.4)</td></tr>
 </table>
+<p><strong>Hourly-labor / non-SCM-role exclude (<code>NON_SCM_ROLE_KEYWORDS</code>).</strong> A second exclude list drops titles that pass the SCM keyword gate (5.4) but aren't the professional/analytical SCM roles we target: (1) hourly warehouse/distribution labor + clerical — <code>material handler</code>, <code>warehouse associate/worker/operator/selector</code>, <code>order selector/picker</code>, <code>forklift</code>, <code>stocker</code>, <code>freight handler</code>, <code>clerk</code>; (2) materials-science / lab / machining — <code>materials lab/r&amp;d/characterization/technician</code>, <code>machinist</code> (only match SCM via the broad "materials" keyword); (3) facilities/safety mismatches — <code>space planner</code>, <code>hazardous materials</code>. Professional warehouse roles (Warehouse Coordinator/Analyst/Specialist) contain none of these and are kept. Added after a QA scan of persisted jobs found ~12% hourly-labor titles and a few materials-lab/space-planner false positives.</p>
 
 <h3>5.3 Location — <span class="diff-scm">changed: US → California</span></h3>
 <p>Replaces <code>isValidUsLocation</code> with <code>isCaliforniaLocation</code>. Keep a posting if its <code>location</code> matches any of:</p>
