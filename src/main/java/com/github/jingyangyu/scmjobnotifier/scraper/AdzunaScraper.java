@@ -153,7 +153,7 @@ public class AdzunaScraper implements JobScraper {
             }
         }
         // bespoke single-company scrapers
-        for (String s : List.of("amazon", "microsoft", "apple", "tesla")) {
+        for (String s : List.of("amazon", "microsoft", "apple", "tesla", "meta")) {
             addToken(tokens, s);
         }
         // display-name aliases for cryptic slugs
