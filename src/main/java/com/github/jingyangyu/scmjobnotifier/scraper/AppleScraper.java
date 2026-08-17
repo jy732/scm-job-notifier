@@ -67,17 +67,22 @@ public class AppleScraper implements JobScraper {
     @Override
     public List<JobPosting> scrape(String company) {
         Map<String, JobPosting> byId = new LinkedHashMap<>();
-        try (BrowserContext context = browser.newContext()) {
-            Page page = context.newPage();
-            for (String query : SCM_QUERIES) {
-                try {
-                    scrapeQuery(page, query, byId);
-                } catch (Exception e) {
-                    log.debug("Apple query '{}' failed: {}", query, e.getMessage());
+        // Playwright is not thread-safe and this Browser bean is shared with the Tesla/BrassRing
+        // scrapers; the poll's 8-thread pool would corrupt the driver, so serialize on the shared
+        // browser (the same singleton bean is used as the monitor across all Playwright scrapers).
+        synchronized (browser) {
+            try (BrowserContext context = browser.newContext()) {
+                Page page = context.newPage();
+                for (String query : SCM_QUERIES) {
+                    try {
+                        scrapeQuery(page, query, byId);
+                    } catch (Exception e) {
+                        log.debug("Apple query '{}' failed: {}", query, e.getMessage());
+                    }
                 }
+            } catch (Exception e) {
+                log.error("Failed to scrape Apple jobs", e);
             }
-        } catch (Exception e) {
-            log.error("Failed to scrape Apple jobs", e);
         }
         log.info("Apple: scraped {} unique SCM job(s)", byId.size());
         return new ArrayList<>(byId.values());

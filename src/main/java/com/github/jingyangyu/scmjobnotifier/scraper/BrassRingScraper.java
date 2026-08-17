@@ -37,9 +37,12 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class BrassRingScraper implements JobScraper {
 
-    // The power-search keyword field is an Angular autocomplete *widget* (a <span> that renders its
-    // own input at runtime), so we click it to focus and type via the keyboard rather than fill().
-    private static final String KEYWORD_WIDGET = "#powerSearchKeyWord";
+    // Home-hero keyword search. BrassRing renders its search box as an Angular autocomplete widget
+    // inside #homesearch / #initialSearchBox (the advanced #powerSearchKeyWord box is NOT on the
+    // home page — targeting it timed out on the real, non-blocked page). Match the rendered <input>,
+    // click to focus, and type via the keyboard.
+    private static final String KEYWORD_WIDGET =
+            "#homesearch input, #initialSearchBox input, #powerSearchKeyWord input";
     private static final String USER_AGENT =
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                     + "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -87,27 +90,37 @@ public class BrassRingScraper implements JobScraper {
             return List.of();
         }
         Map<String, JobPosting> byId = new LinkedHashMap<>();
-        try (BrowserContext context =
-                browser.newContext(
-                        new Browser.NewContextOptions()
-                                .setUserAgent(USER_AGENT)
-                                .setViewportSize(1920, 1080)
-                                .setLocale("en-US")
-                                .setTimezoneId("America/Los_Angeles"))) {
-            // Belt-and-suspenders with the --disable-blink-features launch arg: hide the
-            // navigator.webdriver flag that BrassRing's anti-bot layer checks.
-            context.addInitScript(
-                    "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});");
-            Page page = context.newPage();
-            for (String query : SCM_QUERIES) {
-                try {
-                    scrapeQuery(page, cfg, query, byId);
-                } catch (Exception e) {
-                    log.debug("BrassRing {} query '{}' failed: {}", company, query, e.getMessage());
+        // Playwright's Connection is NOT thread-safe and this Browser bean is shared with the Apple
+        // and Tesla scrapers; the poll runs companies on an 8-thread pool, so concurrent use corrupts
+        // the driver ("Object doesn't exist: tracing@…" / "Cannot find object __adopt__"). Serialize
+        // all Playwright work on the shared browser (the same singleton bean is used as the monitor
+        // in AppleScraper/TeslaScraper too).
+        synchronized (browser) {
+            try (BrowserContext context =
+                    browser.newContext(
+                            new Browser.NewContextOptions()
+                                    .setUserAgent(USER_AGENT)
+                                    .setViewportSize(1920, 1080)
+                                    .setLocale("en-US")
+                                    .setTimezoneId("America/Los_Angeles"))) {
+                // Hide the navigator.webdriver flag that BrassRing's anti-bot layer checks.
+                context.addInitScript(
+                        "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});");
+                Page page = context.newPage();
+                for (String query : SCM_QUERIES) {
+                    try {
+                        scrapeQuery(page, cfg, query, byId);
+                    } catch (Exception e) {
+                        log.debug(
+                                "BrassRing {} query '{}' failed: {}",
+                                company,
+                                query,
+                                e.getMessage());
+                    }
                 }
+            } catch (Exception e) {
+                log.error("Failed to scrape BrassRing company {}", company, e);
             }
-        } catch (Exception e) {
-            log.error("Failed to scrape BrassRing company {}", company, e);
         }
         log.info("BrassRing {}: scraped {} unique SCM job(s)", company, byId.size());
         return new ArrayList<>(byId.values());
@@ -120,13 +133,26 @@ public class BrassRingScraper implements JobScraper {
                 new Page.NavigateOptions()
                         .setWaitUntil(WaitUntilState.NETWORKIDLE)
                         .setTimeout(30000));
-        // Wait for the widget to be attached (an empty <span> may never be "visible"), then click to
-        // focus its rendered input and type the query with the keyboard.
-        page.waitForSelector(
-                KEYWORD_WIDGET,
-                new Page.WaitForSelectorOptions()
-                        .setState(WaitForSelectorState.ATTACHED)
-                        .setTimeout(15000));
+        // Wait for the home search input to render (Angular fills the autocomplete widget after
+        // load), then click to focus and type the query with the keyboard.
+        try {
+            page.waitForSelector(
+                    KEYWORD_WIDGET,
+                    new Page.WaitForSelectorOptions()
+                            .setState(WaitForSelectorState.ATTACHED)
+                            .setTimeout(15000));
+        } catch (RuntimeException e) {
+            // Diagnostic: BrassRing's anti-bot may serve headless Chromium a widget-less challenge
+            // page. Log what actually loaded so a 0-job run reveals block-page vs selector issue.
+            log.warn(
+                    "BrassRing {} '{}': keyword widget not found. url='{}' title='{}' body~='{}'",
+                    cfg.getName(),
+                    query,
+                    page.url(),
+                    safeTitle(page),
+                    safeBodyStart(page));
+            throw e;
+        }
         page.click(KEYWORD_WIDGET);
         page.keyboard().type(query);
 
@@ -134,10 +160,27 @@ public class BrassRingScraper implements JobScraper {
         // capture that response rather than trying to rebuild the payload ourselves.
         Response response =
                 page.waitForResponse(
-                        r -> r.url().contains("PowerSearchJobs"),
+                        r ->
+                                r.url().contains("PowerSearchJobs")
+                                        || r.url().contains("ProcessSortAndShowMoreJobs"),
                         new Page.WaitForResponseOptions().setTimeout(20000),
-                        () -> page.keyboard().press("Enter"));
+                        () -> submitSearch(page));
         parseJobs(response.text(), cfg, byId);
+    }
+
+    /**
+     * Submits the search. BrassRing's keyword box has an explicit search button ({@code
+     * ng-click="powerSearchJobs(this)"}) rather than an Enter handler; click it, falling back to
+     * Enter if the button isn't present on a given tenant's layout.
+     */
+    private void submitSearch(Page page) {
+        try {
+            page.click(
+                    "button[ng-click*='powerSearchJobs']",
+                    new Page.ClickOptions().setTimeout(3000));
+        } catch (RuntimeException e) {
+            page.keyboard().press("Enter");
+        }
     }
 
     private void parseJobs(String body, BrassRingCompany cfg, Map<String, JobPosting> byId) {
@@ -217,6 +260,25 @@ public class BrassRingScraper implements JobScraper {
                     });
         }
         return String.join(", ", parts);
+    }
+
+    private static String safeTitle(Page page) {
+        try {
+            return page.title();
+        } catch (Exception e) {
+            return "?";
+        }
+    }
+
+    private static String safeBodyStart(Page page) {
+        try {
+            Object t =
+                    page.evaluate(
+                            "() => document.body ? document.body.innerText.slice(0, 160) : ''");
+            return t == null ? "" : t.toString().replaceAll("\\s+", " ").trim();
+        } catch (Exception e) {
+            return "?";
+        }
     }
 
     private static String stripHtml(String html) {
