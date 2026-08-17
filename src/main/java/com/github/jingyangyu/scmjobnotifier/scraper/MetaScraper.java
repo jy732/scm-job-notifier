@@ -1,5 +1,6 @@
 package com.github.jingyangyu.scmjobnotifier.scraper;
 
+import com.github.jingyangyu.scmjobnotifier.config.ProxyProperties;
 import com.github.jingyangyu.scmjobnotifier.model.JobPosting;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -15,8 +16,11 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.netty.http.client.HttpClient;
+import reactor.netty.transport.ProxyProvider;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
@@ -66,8 +70,30 @@ public class MetaScraper implements JobScraper {
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
 
-    public MetaScraper(WebClient.Builder webClientBuilder, ObjectMapper objectMapper) {
-        this.webClient = webClientBuilder.defaultHeader(HttpHeaders.USER_AGENT, USER_AGENT).build();
+    public MetaScraper(
+            WebClient.Builder webClientBuilder,
+            ObjectMapper objectMapper,
+            ProxyProperties proxyProps) {
+        WebClient.Builder builder =
+                webClientBuilder.defaultHeader(HttpHeaders.USER_AGENT, USER_AGENT);
+        if (proxyProps.isConfigured()) {
+            HttpClient httpClient =
+                    HttpClient.create()
+                            .proxy(
+                                    spec -> {
+                                        ProxyProvider.Builder b =
+                                                spec.type(ProxyProvider.Proxy.HTTP)
+                                                        .host(proxyProps.getHost())
+                                                        .port(proxyProps.getPort());
+                                        if (proxyProps.hasAuth()) {
+                                            b.username(proxyProps.getUsername())
+                                                    .password(user -> proxyProps.getPassword());
+                                        }
+                                    });
+            builder = builder.clientConnector(new ReactorClientHttpConnector(httpClient));
+            log.info("Meta scraper routing through proxy {}", proxyProps.getHost());
+        }
+        this.webClient = builder.build();
         this.objectMapper = objectMapper;
         log.info("Meta scraper initialized (GraphQL API, {} SCM queries)", SCM_QUERIES.size());
     }

@@ -1,9 +1,11 @@
 package com.github.jingyangyu.scmjobnotifier;
 
 import com.github.jingyangyu.scmjobnotifier.config.AdzunaProperties;
+import com.github.jingyangyu.scmjobnotifier.config.BrassRingProperties;
 import com.github.jingyangyu.scmjobnotifier.config.IcimsProperties;
 import com.github.jingyangyu.scmjobnotifier.config.OracleCloudProperties;
 import com.github.jingyangyu.scmjobnotifier.config.PaylocityProperties;
+import com.github.jingyangyu.scmjobnotifier.config.ProxyProperties;
 import com.github.jingyangyu.scmjobnotifier.config.SuccessFactorsProperties;
 import com.github.jingyangyu.scmjobnotifier.config.WorkdayProperties;
 import org.springframework.boot.SpringApplication;
@@ -26,6 +28,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     OracleCloudProperties.class,
     SuccessFactorsProperties.class,
     PaylocityProperties.class,
+    BrassRingProperties.class,
+    ProxyProperties.class,
     AdzunaProperties.class
 })
 public class ScmJobNotifierApplication {

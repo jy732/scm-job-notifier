@@ -188,9 +188,11 @@ final class FilterKeywords {
                     "production control");
 
     // ── Location: California detection ──
-    // Matches ", CA" as a whole token (so it won't fire on "Canada"): comma, optional space, "ca",
-    // then a word boundary (end, space, comma, or a zip digit).
-    static final Pattern CA_STATE_PATTERN = Pattern.compile("(?i),\\s*ca\\b");
+    // Matches a standalone "CA" state token preceded by a separator (start-of-string, comma,
+    // whitespace, hyphen, or slash), then a word boundary. Covers "Los Angeles, CA",
+    // "W Sacramento CA 95691" (Ryder, space-separated) and "Fontana-CA-US" (HD Supply, hyphenated).
+    // The trailing \b keeps "Canada"/"CAN"/"Boca" from false-matching.
+    static final Pattern CA_STATE_PATTERN = Pattern.compile("(?i)(?:^|[,\\s/-])ca\\b");
 
     // Known California cities/metros. Ambiguous names that also exist elsewhere (e.g. "Ontario" =
     // Canada, "San Jose" = Costa Rica) are gated by a non-US-country reject check in the filter.

@@ -1,0 +1,229 @@
+package com.github.jingyangyu.scmjobnotifier.scraper;
+
+import com.github.jingyangyu.scmjobnotifier.config.BrassRingProperties;
+import com.github.jingyangyu.scmjobnotifier.config.BrassRingProperties.BrassRingCompany;
+import com.github.jingyangyu.scmjobnotifier.model.JobPosting;
+import com.microsoft.playwright.Browser;
+import com.microsoft.playwright.BrowserContext;
+import com.microsoft.playwright.Page;
+import com.microsoft.playwright.Response;
+import com.microsoft.playwright.options.WaitForSelectorState;
+import com.microsoft.playwright.options.WaitUntilState;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+
+/**
+ * Scraper for companies that use Kenexa BrassRing (the {@code sjobs.brassring.com} TGNewUI Angular
+ * app) as their ATS — e.g. General Atomics, Harbor Freight, Lockheed Martin.
+ *
+ * <p>BrassRing gates its full job list behind a stateful, CSRF-protected search ({@code
+ * PowerSearchJobs}) whose payload is impractical to replicate over plain HTTP. So — like {@link
+ * AppleScraper}/{@link TeslaScraper} — this drives the real UI with Playwright: it navigates to the
+ * board's Home page, types each SCM term into the power-search box, submits, and <b>captures the
+ * {@code PowerSearchJobs} JSON response</b> the app fires (rather than scraping fragile DOM tiles).
+ * The response is {@code {Jobs:{Job:[...]}}}, where each job carries a {@code Questions} array of
+ * {@code {QuestionName, Value}} pairs ({@code reqid}, {@code jobtitle}, {@code jobdescription}, and
+ * tenant-specific {@code formtext*} location fields) plus a {@code Link}. Results across queries are
+ * de-duplicated by req id; descriptions come inline (single-phase).
+ */
+@Slf4j
+@Component
+public class BrassRingScraper implements JobScraper {
+
+    // The power-search keyword field is an Angular autocomplete *widget* (a <span> that renders its
+    // own input at runtime), so we click it to focus and type via the keyboard rather than fill().
+    private static final String KEYWORD_WIDGET = "#powerSearchKeyWord";
+    private static final String USER_AGENT =
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    + "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    + "Chrome/136.0.0.0 Safari/537.36";
+
+    /** SCM search terms. Union of results across queries is de-duplicated by req id. */
+    private static final List<String> SCM_QUERIES =
+            List.of("supply chain", "procurement", "logistics", "planner", "buyer");
+
+    private final Browser browser;
+    private final ObjectMapper objectMapper;
+    private final BrassRingProperties properties;
+
+    public BrassRingScraper(
+            Browser browser, ObjectMapper objectMapper, BrassRingProperties properties) {
+        this.browser = browser;
+        this.objectMapper = objectMapper;
+        this.properties = properties;
+        log.info(
+                "BrassRing scraper initialized (Playwright, {} companies, {} SCM queries)",
+                properties.getCompanies().size(),
+                SCM_QUERIES.size());
+    }
+
+    @Override
+    public String platform() {
+        return "brassring";
+    }
+
+    @Override
+    public List<String> companies() {
+        return properties.getCompanies().stream().map(BrassRingCompany::getName).toList();
+    }
+
+    /**
+     * Renders the company's BrassRing board via Playwright, runs each SCM power-search, and unions
+     * the captured {@code PowerSearchJobs} results de-duplicated by req id. On a per-query failure
+     * (block, selector timeout, no search response), keeps whatever the other queries found.
+     */
+    @Override
+    public List<JobPosting> scrape(String company) {
+        BrassRingCompany cfg = properties.findByName(company).orElse(null);
+        if (cfg == null) {
+            log.warn("BrassRing: no config for '{}'", company);
+            return List.of();
+        }
+        Map<String, JobPosting> byId = new LinkedHashMap<>();
+        try (BrowserContext context =
+                browser.newContext(
+                        new Browser.NewContextOptions()
+                                .setUserAgent(USER_AGENT)
+                                .setViewportSize(1920, 1080)
+                                .setLocale("en-US")
+                                .setTimezoneId("America/Los_Angeles"))) {
+            // Belt-and-suspenders with the --disable-blink-features launch arg: hide the
+            // navigator.webdriver flag that BrassRing's anti-bot layer checks.
+            context.addInitScript(
+                    "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});");
+            Page page = context.newPage();
+            for (String query : SCM_QUERIES) {
+                try {
+                    scrapeQuery(page, cfg, query, byId);
+                } catch (Exception e) {
+                    log.debug("BrassRing {} query '{}' failed: {}", company, query, e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to scrape BrassRing company {}", company, e);
+        }
+        log.info("BrassRing {}: scraped {} unique SCM job(s)", company, byId.size());
+        return new ArrayList<>(byId.values());
+    }
+
+    private void scrapeQuery(
+            Page page, BrassRingCompany cfg, String query, Map<String, JobPosting> byId) {
+        page.navigate(
+                cfg.homeUrl(),
+                new Page.NavigateOptions()
+                        .setWaitUntil(WaitUntilState.NETWORKIDLE)
+                        .setTimeout(30000));
+        // Wait for the widget to be attached (an empty <span> may never be "visible"), then click to
+        // focus its rendered input and type the query with the keyboard.
+        page.waitForSelector(
+                KEYWORD_WIDGET,
+                new Page.WaitForSelectorOptions()
+                        .setState(WaitForSelectorState.ATTACHED)
+                        .setTimeout(15000));
+        page.click(KEYWORD_WIDGET);
+        page.keyboard().type(query);
+
+        // Submitting makes the Angular app POST PowerSearchJobs with its full stateful payload; we
+        // capture that response rather than trying to rebuild the payload ourselves.
+        Response response =
+                page.waitForResponse(
+                        r -> r.url().contains("PowerSearchJobs"),
+                        new Page.WaitForResponseOptions().setTimeout(20000),
+                        () -> page.keyboard().press("Enter"));
+        parseJobs(response.text(), cfg, byId);
+    }
+
+    private void parseJobs(String body, BrassRingCompany cfg, Map<String, JobPosting> byId) {
+        if (body == null || !body.stripLeading().startsWith("{")) {
+            return;
+        }
+        Map<String, Object> root =
+                objectMapper.readValue(body, new TypeReference<Map<String, Object>>() {});
+        for (Map<String, Object> job : jobList(root)) {
+            Map<String, String> q = questions(job);
+            String reqId = q.getOrDefault("reqid", "");
+            if (reqId.isEmpty() || byId.containsKey(reqId)) {
+                continue;
+            }
+            byId.put(
+                    reqId,
+                    JobPosting.builder()
+                            .company(cfg.getName())
+                            .externalId(reqId)
+                            .title(q.getOrDefault("jobtitle", ""))
+                            .url(strOrEmpty(job.get("Link")))
+                            .location(location(q, cfg))
+                            .description(stripHtml(q.getOrDefault("jobdescription", "")))
+                            .postedDate(null)
+                            .detectedAt(Instant.now())
+                            .build());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> jobList(Map<String, Object> root) {
+        Object jobs = root.get("Jobs");
+        if (jobs instanceof Map<?, ?> jobsMap && jobsMap.get("Job") instanceof List<?> list) {
+            return (List<Map<String, Object>>) (List<?>) list;
+        }
+        return List.of();
+    }
+
+    /** Flattens a job's {@code Questions} array into an ordered {@code QuestionName -> Value} map. */
+    @SuppressWarnings("unchecked")
+    private static Map<String, String> questions(Map<String, Object> job) {
+        Map<String, String> out = new LinkedHashMap<>();
+        if (job.get("Questions") instanceof List<?> qs) {
+            for (Object o : qs) {
+                if (o instanceof Map<?, ?> m) {
+                    Object name = m.get("QuestionName");
+                    if (name != null) {
+                        out.put(name.toString(), strOrEmpty(m.get("Value")).trim());
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Builds the location from the configured {@code locationFields}, or — when none are configured
+     * — from every non-empty {@code formtext*} value (guards against silent location-drops on
+     * tenants whose fields aren't mapped yet).
+     */
+    private static String location(Map<String, String> q, BrassRingCompany cfg) {
+        List<String> parts = new ArrayList<>();
+        List<String> fields = cfg.getLocationFields();
+        if (fields != null && !fields.isEmpty()) {
+            for (String f : fields) {
+                String v = q.get(f);
+                if (v != null && !v.isBlank()) {
+                    parts.add(v);
+                }
+            }
+        } else {
+            q.forEach(
+                    (k, v) -> {
+                        if (k.startsWith("formtext") && v != null && !v.isBlank()) {
+                            parts.add(v);
+                        }
+                    });
+        }
+        return String.join(", ", parts);
+    }
+
+    private static String stripHtml(String html) {
+        return html.replaceAll("<[^>]+>", " ").replaceAll("\\s+", " ").trim();
+    }
+
+    private static String strOrEmpty(Object value) {
+        return value != null ? value.toString() : "";
+    }
+}

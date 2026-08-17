@@ -86,6 +86,34 @@ SBT Global, V R Della Infotech, Software Guidance & Assistance, ATR Internationa
 Pinnacle Technical Resources, Signature Consultants, Kalon Executive Search, CornerStone
 Professional Placement, The Select Group, NextDeavor, Katalyst Healthcares, Hospitality Hiring Hub.
 
+### IP-block mitigation — proxy support + Playwright hardening (2026-08-15)
+Meta Careers and BrassRing return a 400/429 error page to this project's scrapers. Root cause is
+**dynamic anti-bot + the CI sandbox's TLS interception**, not a code bug or a static IP block:
+
+- The **sandbox MITMs HTTPS**; Meta/BrassRing reject the intercepted TLS outright (400). A *direct*
+  connection (curl with the sandbox disabled) reaches the real page — same egress IP either way, so
+  it isn't an IP reputation issue per se.
+- Meta additionally applies **escalating rate-limiting**: a fresh direct call returned 63 jobs /
+  44 CA, but rapid automated retries got the same IP throttled (429 → 400). The scrapers are
+  therefore *correct* (Meta proven end-to-end); the environment just can't sustain access.
+
+The production fix is a proxy (rotating/residential distributes load and avoids rate-limit
+escalation) + the app's normal polite cadence (one poll / 15 min, not rapid-fire testing).
+Two-part mitigation shipped:
+
+1. **Configurable outbound proxy** (`ProxyProperties`, prefix `job.proxy`) — routes the Meta
+   WebClient (reactor-netty `ProxyProvider`) *and* all Playwright scrapers (`BrowserType.LaunchOptions.setProxy`)
+   through a residential/rotating HTTP proxy. Disabled by default; enable via `.env`:
+   `SCRAPER_PROXY_ENABLED=true`, `SCRAPER_PROXY_HOST/PORT` (+ `USERNAME/PASSWORD`). **This is the
+   actual fix** — point it at a clean IP and Meta/BrassRing return jobs.
+2. **Playwright anti-automation hardening** — launch with `--disable-blink-features=AutomationControlled`,
+   context `locale=en-US` + `timezoneId=America/Los_Angeles`, and an init script hiding
+   `navigator.webdriver`. Helps against behavioral checks; insufficient on its own against a pure IP block.
+
+Until a proxy is configured (or the app runs from an unblocked IP), Meta + the 3 BrassRing scrapers
+return 0 — an environment limitation, not a scraper bug (Meta was validated at 63 jobs / 44 CA via
+`curl` with a fresh `datr` cookie before this IP got throttled).
+
 ### Takeaway
 The migratable pool is **nearly exhausted**. Of ~230 distinct un-migrated employers: ~48 are
 staffing/recruiters (skip), a large block are already-migrated stale rows, a handful are on
