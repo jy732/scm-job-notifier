@@ -114,6 +114,25 @@ Until a proxy is configured (or the app runs from an unblocked IP), Meta + the 3
 return 0 — an environment limitation, not a scraper bug (Meta was validated at 63 jobs / 44 CA via
 `curl` with a fresh `datr` cookie before this IP got throttled).
 
+### BrassRing — DISABLED: public search is login-gated (2026-08-19)
+Ran the scraper from a genuinely un-intercepted network (macOS Terminal.app on the dev machine) and
+proved the earlier 0s there were **not** the IP block — the real General Atomics board loads fine.
+The blocker is that GA's BrassRing **public (not-logged-in) search doesn't expose an automatable
+keyword search**:
+- The home **"Search" button** runs `searchMatchedJobs` → the `MatchedJobs` endpoint, a résumé/profile
+  match that returns `JobsCount:0` without login and **ignores the typed keyword** (confirmed: the
+  keyword was verified present in the input, still 0).
+- The **Advanced/power keyword search** (`powerSearchJobs` / `#powerSearchKeyWord`) is `ng-hide`den and
+  **won't render even when force-clicked** — effectively disabled for public users.
+- Navigating straight to the results-hash URL (`#keyWordSearch=…`) **redirects back to `#home`**.
+
+So reliable BrassRing scraping would require a real **login** (credentials + résumé, fragile, ToS) —
+not worth it for 3 companies. **Resolution:** companies commented out in `application.properties`
+(scraper kept as reference, disabled). With them empty, `AdzunaScraper` no longer excludes them, so
+**General Atomics / Harbor Freight / Lockheed Martin return to the Adzuna long-tail** (how they
+originally surfaced). The Playwright thread-safety fix (serialize the shared browser across
+Apple/Tesla/BrassRing) and the CA-location fix stay — both are independently valuable.
+
 ### Takeaway
 The migratable pool is **nearly exhausted**. Of ~230 distinct un-migrated employers: ~48 are
 staffing/recruiters (skip), a large block are already-migrated stale rows, a handful are on

@@ -14,6 +14,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
@@ -37,12 +39,10 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class BrassRingScraper implements JobScraper {
 
-    // Home-hero keyword search. BrassRing renders its search box as an Angular autocomplete widget
-    // inside #homesearch / #initialSearchBox (the advanced #powerSearchKeyWord box is NOT on the
-    // home page — targeting it timed out on the real, non-blocked page). Match the rendered <input>,
-    // click to focus, and type via the keyboard.
-    private static final String KEYWORD_WIDGET =
-            "#homesearch input, #initialSearchBox input, #powerSearchKeyWord input";
+    // Keyword search box in BrassRing's *power/advanced* search panel. The home-hero box submits to
+    // searchMatchedJobs (a résumé/profile match that returns nothing when not logged in); the real
+    // keyword search is powerSearchJobs, whose input lives in the advanced panel we reveal first.
+    private static final String KEYWORD_WIDGET = "#powerSearchKeyWord input, #powerSearchKeyWord";
     private static final String USER_AGENT =
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                     + "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -133,8 +133,33 @@ public class BrassRingScraper implements JobScraper {
                 new Page.NavigateOptions()
                         .setWaitUntil(WaitUntilState.NETWORKIDLE)
                         .setTimeout(30000));
-        // Wait for the home search input to render (Angular fills the autocomplete widget after
-        // load), then click to focus and type the query with the keyboard.
+        // A privacy/cookie consent modal (ngDialog) overlays the page and intercepts pointer events
+        // (clicks on the search box time out). Accept it if there's an agree button, then remove any
+        // residual overlay so interactions land.
+        try {
+            page.click(
+                    "button[ng-click*='nextPrivacyFlow'], button[aria-label*='Agree']",
+                    new Page.ClickOptions().setTimeout(4000));
+        } catch (RuntimeException ignore) {
+            // no consent dialog on this load
+        }
+        try {
+            page.evaluate(
+                    "() => document.querySelectorAll('.ngdialog-overlay, .ngdialog')"
+                            + ".forEach(e => e.remove())");
+        } catch (RuntimeException ignore) {
+            // nothing to remove
+        }
+        // Reveal the power/advanced search panel — that's where the real keyword search
+        // (powerSearchJobs) and its #powerSearchKeyWord box live. Best-effort.
+        try {
+            page.click(
+                    "a[ng-click*='getPowerSearchQuestions'], a[ng-click*='toggleAdvancedOptions']",
+                    new Page.ClickOptions().setTimeout(5000));
+        } catch (RuntimeException ignore) {
+            // already open, or a layout without the reveal link
+        }
+        // Wait for the power-search keyword input to render, then click to focus and type the query.
         try {
             page.waitForSelector(
                     KEYWORD_WIDGET,
@@ -156,28 +181,73 @@ public class BrassRingScraper implements JobScraper {
         page.click(KEYWORD_WIDGET);
         page.keyboard().type(query);
 
-        // Submitting makes the Angular app POST PowerSearchJobs with its full stateful payload; we
-        // capture that response rather than trying to rebuild the payload ourselves.
-        Response response =
-                page.waitForResponse(
-                        r ->
-                                r.url().contains("PowerSearchJobs")
-                                        || r.url().contains("ProcessSortAndShowMoreJobs"),
-                        new Page.WaitForResponseOptions().setTimeout(20000),
-                        () -> submitSearch(page));
-        parseJobs(response.text(), cfg, byId);
+        // Capture every Search/Ajax response the submit triggers so a 0-job run reveals exactly which
+        // endpoint (if any) the search fired; parse the job-results payload and log the rest.
+        List<Response> captured = new CopyOnWriteArrayList<>();
+        Consumer<Response> listener =
+                r -> {
+                    if (r.url().contains("/Search/Ajax/")) {
+                        captured.add(r);
+                    }
+                };
+        page.onResponse(listener);
+        try {
+            submitSearch(page);
+            page.waitForTimeout(6000);
+        } finally {
+            page.offResponse(listener);
+        }
+        int before = byId.size();
+        boolean parsed = false;
+        String sample = "";
+        for (Response r : captured) {
+            String ep = endpoint(r);
+            if (ep.contains("PowerSearchJobs")
+                    || ep.contains("ProcessSortAndShowMoreJobs")
+                    || ep.equals("MatchedJobs")) {
+                String body = safeText(r);
+                if (sample.isEmpty() && !body.isEmpty()) {
+                    sample = body.substring(0, Math.min(140, body.length())).replaceAll("\\s+", " ");
+                }
+                parseJobs(body, cfg, byId);
+                parsed = true;
+            }
+        }
+        log.debug(
+                "BrassRing {} '{}': Ajax seen {}, parsed={}, +{} job(s), sample='{}'",
+                cfg.getName(),
+                query,
+                captured.stream().map(BrassRingScraper::endpoint).toList(),
+                parsed,
+                byId.size() - before,
+                sample);
+    }
+
+    private static String safeText(Response r) {
+        try {
+            return r.text();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /** Last path segment of a Search/Ajax URL (endpoint name), for diagnostic logging. */
+    private static String endpoint(Response r) {
+        String u = r.url().replaceAll("\\?.*$", "");
+        int i = u.lastIndexOf('/');
+        return i >= 0 ? u.substring(i + 1) : u;
     }
 
     /**
-     * Submits the search. BrassRing's keyword box has an explicit search button ({@code
-     * ng-click="powerSearchJobs(this)"}) rather than an Enter handler; click it, falling back to
-     * Enter if the button isn't present on a given tenant's layout.
+     * Submits the keyword search by clicking the power-search button ({@code
+     * ng-click="powerSearchJobs(this)"} → the {@code PowerSearchJobs} results call), falling back to
+     * Enter if the button isn't present.
      */
     private void submitSearch(Page page) {
         try {
             page.click(
                     "button[ng-click*='powerSearchJobs']",
-                    new Page.ClickOptions().setTimeout(3000));
+                    new Page.ClickOptions().setTimeout(5000));
         } catch (RuntimeException e) {
             page.keyboard().press("Enter");
         }
