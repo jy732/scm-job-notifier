@@ -8,10 +8,12 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +48,21 @@ public class WorkdayScraper implements JobScraper {
 
     /** Extracts the leading number from Workday's relative "postedOn" string. */
     private static final Pattern POSTED_DAYS = Pattern.compile("(\\d+)");
+
+    /**
+     * Matches a California location-facet descriptor — e.g. {@code "US - CA, Sunnyvale"}, {@code "US
+     * - Remote, CA"}, {@code "San Francisco Bay Area, CA"}, {@code "California"}. Used to pick a
+     * tenant's CA location facet(s) so multi-location postings (whose {@code locationsText} is only a
+     * count) are recognized as California.
+     */
+    private static final Pattern CA_FACET = Pattern.compile("(?i)[,\\-]\\s*ca\\b|\\bcalifornia\\b");
+
+    /**
+     * Whether a job's location text already reads as California (mirrors the pipeline's
+     * California check), so we don't redundantly append "· California" to jobs that already qualify.
+     */
+    private static final Pattern LOC_HAS_CA =
+            Pattern.compile("(?i)(?:^|[,\\s/\\-])ca\\b|\\bcalifornia\\b");
 
     /**
      * Retry on HTTP 429 with exponential backoff + jitter. Necessary because ~40 Workday companies
@@ -108,12 +125,17 @@ public class WorkdayScraper implements JobScraper {
         // capture it once and never overwrite with 0 — otherwise the loop stops after page 2 (40
         // jobs). We also stop when a page returns no postings, with a MAX_PAGES safety cap.
         int total = 0;
+        // Facets come back on the first page; captured for the CA multi-location tagging pass below.
+        Object firstFacets = null;
 
         try {
             for (int page = 0; page < MAX_PAGES; page++) {
                 Map<String, Object> response = fetchPage(config, offset);
                 if (response == null) {
                     break;
+                }
+                if (page == 0) {
+                    firstFacets = response.get("facets");
                 }
 
                 int pageTotal = ((Number) response.getOrDefault("total", 0)).intValue();
@@ -147,6 +169,7 @@ public class WorkdayScraper implements JobScraper {
                 }
             }
 
+            tagCaMultiLocation(config, allJobs, firstFacets);
             log.info("Workday [{}]: scraped {} total job(s)", company, allJobs.size());
             return allJobs;
         } catch (Exception e) {
@@ -156,8 +179,13 @@ public class WorkdayScraper implements JobScraper {
     }
 
     private Map<String, Object> fetchPage(WorkdayCompany config, int offset) {
+        return fetchPage(config, offset, Collections.emptyMap());
+    }
+
+    private Map<String, Object> fetchPage(
+            WorkdayCompany config, int offset, Map<String, Object> appliedFacets) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("appliedFacets", Collections.emptyMap());
+        body.put("appliedFacets", appliedFacets);
         body.put("limit", PAGE_SIZE);
         body.put("offset", offset);
         body.put("searchText", "");
@@ -172,6 +200,125 @@ public class WorkdayScraper implements JobScraper {
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
                 .retryWhen(RATE_LIMIT_RETRY)
                 .block();
+    }
+
+    /**
+     * Recovers multi-location California postings that the {@code locationsText}/externalPath
+     * heuristics miss. Workday shows a multi-location job as "N Locations" with only the primary city
+     * in the path, so a role in several places including CA slips past the California filter. Here we
+     * ask Workday which recent jobs match the tenant's California <em>location facet</em> — the facet
+     * matches the full underlying location list, not the displayed summary — and tag those jobs'
+     * location as California so they survive the pipeline. No-op when the tenant exposes no CA
+     * location facet, and best-effort (any failure just leaves the jobs untagged).
+     */
+    private void tagCaMultiLocation(WorkdayCompany config, List<JobPosting> jobs, Object facets) {
+        try {
+            Map<String, List<String>> caFacets = new LinkedHashMap<>();
+            if (facets instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> facetList = (List<Map<String, Object>>) facets;
+                collectCaFacetIds(facetList, caFacets);
+            }
+            if (caFacets.isEmpty()) {
+                return;
+            }
+            // One facet param at a time (mixing params ANDs them). Prefer city-level "locations".
+            String param = caFacets.containsKey("locations") ? "locations" : caFacets.keySet().iterator().next();
+            Set<String> caPaths =
+                    fetchCaExternalPaths(config, Map.of(param, caFacets.get(param)));
+            if (caPaths.isEmpty()) {
+                return;
+            }
+            int tagged = 0;
+            for (JobPosting j : jobs) {
+                String loc = j.getLocation() == null ? "" : j.getLocation();
+                if (caPaths.contains(j.getExternalId()) && !LOC_HAS_CA.matcher(loc).find()) {
+                    j.setLocation(loc.isBlank() ? "California" : loc + " · California");
+                    tagged++;
+                }
+            }
+            if (tagged > 0) {
+                log.info(
+                        "Workday [{}]: recovered {} multi-location CA job(s) via location facet",
+                        config.getName(),
+                        tagged);
+            }
+        } catch (Exception e) {
+            log.debug("Workday [{}]: CA-facet tagging skipped: {}", config.getName(), e.getMessage());
+        }
+    }
+
+    /** City/metro-level location facet params whose values carry a usable per-location id. */
+    private static boolean isCityLocationFacet(String facetParameter) {
+        return "locations".equalsIgnoreCase(facetParameter)
+                || "locationMetroArea".equalsIgnoreCase(facetParameter);
+    }
+
+    /**
+     * Walks the (hierarchical) facet tree and collects, per city-level location facet param, the ids
+     * of values whose descriptor names California.
+     */
+    @SuppressWarnings("unchecked")
+    private static void collectCaFacetIds(
+            List<Map<String, Object>> nodes, Map<String, List<String>> out) {
+        if (nodes == null) {
+            return;
+        }
+        for (Map<String, Object> node : nodes) {
+            Object valsObj = node.get("values");
+            if (!(valsObj instanceof List)) {
+                continue;
+            }
+            List<Map<String, Object>> values = (List<Map<String, Object>>) valsObj;
+            if (isCityLocationFacet((String) node.get("facetParameter"))) {
+                for (Map<String, Object> v : values) {
+                    String desc = (String) v.get("descriptor");
+                    String id = (String) v.get("id");
+                    if (id != null && desc != null && CA_FACET.matcher(desc).find()) {
+                        out.computeIfAbsent(
+                                        (String) node.get("facetParameter"), k -> new ArrayList<>())
+                                .add(id);
+                    }
+                }
+            }
+            collectCaFacetIds(values, out); // recurse — location values are nested sub-facets
+        }
+    }
+
+    /** Paginates the CA-facet-filtered search and collects the returned externalPaths. */
+    @SuppressWarnings("unchecked")
+    private Set<String> fetchCaExternalPaths(
+            WorkdayCompany config, Map<String, Object> appliedFacets) {
+        Set<String> paths = new HashSet<>();
+        int offset = 0;
+        int total = 0;
+        for (int page = 0; page < MAX_PAGES; page++) {
+            Map<String, Object> resp = fetchPage(config, offset, appliedFacets);
+            if (resp == null) {
+                break;
+            }
+            int pageTotal = ((Number) resp.getOrDefault("total", 0)).intValue();
+            if (pageTotal > 0) {
+                total = pageTotal;
+            }
+            List<Map<String, Object>> postings =
+                    (List<Map<String, Object>>)
+                            resp.getOrDefault("jobPostings", Collections.emptyList());
+            if (postings.isEmpty()) {
+                break;
+            }
+            for (Map<String, Object> p : postings) {
+                String path = (String) p.getOrDefault("externalPath", "");
+                if (!path.isBlank()) {
+                    paths.add(path);
+                }
+            }
+            offset += PAGE_SIZE;
+            if (offset >= total) {
+                break;
+            }
+        }
+        return paths;
     }
 
     private JobPosting toJobPosting(
