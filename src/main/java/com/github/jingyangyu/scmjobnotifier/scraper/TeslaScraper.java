@@ -1,47 +1,63 @@
 package com.github.jingyangyu.scmjobnotifier.scraper;
 
+import com.github.jingyangyu.scmjobnotifier.config.TeslaProperties;
 import com.github.jingyangyu.scmjobnotifier.model.JobPosting;
-import com.microsoft.playwright.Browser;
-import com.microsoft.playwright.BrowserContext;
-import com.microsoft.playwright.Page;
-import com.microsoft.playwright.options.WaitUntilState;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
 
 /**
- * Scraper for Tesla Careers ({@code tesla.com/careers/search}), adapted for SCM.
+ * Scraper for Tesla Careers, via Bright Data's Web Unlocker.
  *
- * <p>Ports swe-job-notifier's Playwright DOM scraper but searches supply-chain terms instead of
- * "software engineer". Tesla is Fremont-heavy so most results are CA (the CA pre-filter enforces).
- * Tesla uses Akamai bot detection that frequently blocks headless browsers — when blocked, this
- * scraper gracefully returns whatever it has instead of throwing.
+ * <p>Tesla serves its whole board in one JSON call — {@code /cua-api/apps/careers/state} returns
+ * ~7.8k listings plus a {@code lookup} dictionary — but that endpoint is guarded by Akamai Bot
+ * Manager and an app-level {@code cpr_chlge} challenge that rejects direct HTTP clients and every
+ * Playwright mode we tried ("Access Denied"). We therefore fetch it through the Web Unlocker, which
+ * mints Akamai-valid cookies and returns the JSON, then hand the payload to {@link
+ * TeslaStateParser}. The whole board comes back in one request, so unlike the old per-query DOM
+ * scrape this yields canonical Tesla ids (dupe-clean) and complete CA coverage.
+ *
+ * <p>The Web Unlocker occasionally returns the {@code cpr_chlge} stub (tiny/empty) instead of the
+ * board when its rotating IP hasn't solved the challenge; a genuine board is ~1.5 MB. We retry,
+ * with spacing (back-to-back calls get throttled), until the body actually contains {@code
+ * listings}. Fetching is throttled to at most hourly since Tesla doesn't post fast and to stay
+ * within the Web Unlocker free-credit allowance. No-op when unconfigured.
  */
 @Slf4j
 @Component
 public class TeslaScraper implements JobScraper {
 
-    private static final String SEARCH_URL =
-            "https://www.tesla.com/careers/search/?query=%s&country=US";
-    private static final String USER_AGENT =
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                    + "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36";
+    private static final String STATE_URL = "https://www.tesla.com/cua-api/apps/careers/state";
+    private static final String UNLOCKER_API = "https://api.brightdata.com/request";
+    private static final int MAX_ATTEMPTS = 5;
+    private static final Duration RETRY_DELAY = Duration.ofSeconds(8);
+    private static final Duration CALL_TIMEOUT = Duration.ofSeconds(120);
 
-    /** SCM search terms. Union of results is de-duplicated by job id. */
-    private static final List<String> SCM_QUERIES =
-            List.of("supply chain", "procurement", "logistics");
+    /** A real board is ~1.5 MB; the challenge stub / page shell is far smaller. */
+    private static final int MIN_BOARD_BYTES = 100_000;
 
-    private final Browser browser;
+    /** Tesla doesn't post fast — fetch at most this often to conserve Web Unlocker credits. */
+    private static final Duration MIN_INTERVAL = Duration.ofMinutes(55);
 
-    public TeslaScraper(Browser browser) {
-        this.browser = browser;
-        log.info("Tesla scraper initialized (Playwright, {} SCM queries)", SCM_QUERIES.size());
+    private final WebClient webClient;
+    private final TeslaProperties props;
+    private volatile Instant lastFetch = Instant.EPOCH;
+
+    public TeslaScraper(WebClient.Builder webClientBuilder, TeslaProperties props) {
+        // The board is ~1.5 MB, well over WebClient's default 256 KB buffer — lift it so the
+        // response isn't truncated into a parse failure.
+        this.webClient =
+                webClientBuilder
+                        .codecs(c -> c.defaultCodecs().maxInMemorySize(16 * 1024 * 1024))
+                        .build();
+        this.props = props;
+        log.info(
+                "Tesla scraper initialized (Bright Data Web Unlocker, configured={})",
+                props.isConfigured());
     }
 
     @Override
@@ -54,176 +70,68 @@ public class TeslaScraper implements JobScraper {
         return List.of("tesla");
     }
 
-    /**
-     * Renders Tesla's career page per SCM query via Playwright with a custom user agent and
-     * 1920x1080 viewport to avoid bot detection, extracting jobs from the JS-rendered DOM. Results
-     * across queries are de-duplicated by job id. On a WAF block or missing links, that query is
-     * skipped.
-     */
     @Override
     public List<JobPosting> scrape(String company) {
-        Map<String, JobPosting> byId = new LinkedHashMap<>();
-        // Playwright is not thread-safe and this Browser bean is shared with the Apple/BrassRing
-        // scrapers; the poll's 8-thread pool would corrupt the driver, so serialize on the shared
-        // browser (the same singleton bean is used as the monitor across all Playwright scrapers).
-        synchronized (browser) {
-            try (BrowserContext context =
-                    browser.newContext(
-                            new Browser.NewContextOptions()
-                                    .setUserAgent(USER_AGENT)
-                                    .setViewportSize(1920, 1080))) {
-                Page page = context.newPage();
-                for (String query : SCM_QUERIES) {
-                    try {
-                        scrapeQuery(page, query, byId);
-                    } catch (Exception e) {
-                        log.debug("Tesla query '{}' failed: {}", query, e.getMessage());
-                    }
+        if (!props.isConfigured()) {
+            return List.of();
+        }
+        if (Duration.between(lastFetch, Instant.now()).compareTo(MIN_INTERVAL) < 0) {
+            log.info("Tesla: throttled (fetched < {} min ago), skipping", MIN_INTERVAL.toMinutes());
+            return List.of();
+        }
+        String board = fetchBoard();
+        if (board == null) {
+            log.warn("Tesla: Web Unlocker returned no board after {} attempts", MAX_ATTEMPTS);
+            return List.of();
+        }
+        lastFetch = Instant.now();
+        List<JobPosting> jobs = TeslaStateParser.parse(board);
+        log.info("Tesla: scraped {} job(s) via Web Unlocker", jobs.size());
+        return jobs;
+    }
+
+    /** POSTs to the Web Unlocker, retrying (spaced) past the {@code cpr_chlge} empties. */
+    private String fetchBoard() {
+        String body =
+                "{\"zone\":\""
+                        + props.getBrightdataZone()
+                        + "\",\"url\":\""
+                        + STATE_URL
+                        + "\",\"format\":\"raw\"}";
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                String resp =
+                        webClient
+                                .post()
+                                .uri(UNLOCKER_API)
+                                .header("Authorization", "Bearer " + props.getBrightdataToken())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .bodyValue(body)
+                                .retrieve()
+                                .bodyToMono(String.class)
+                                .block(CALL_TIMEOUT);
+                if (resp != null
+                        && resp.length() >= MIN_BOARD_BYTES
+                        && resp.contains("\"listings\"")) {
+                    return resp;
                 }
+                log.debug(
+                        "Tesla: attempt {}/{} got {} bytes (challenge), retrying",
+                        attempt,
+                        MAX_ATTEMPTS,
+                        resp == null ? 0 : resp.length());
             } catch (Exception e) {
-                log.error("Failed to scrape Tesla careers", e);
+                log.debug("Tesla: attempt {}/{} failed: {}", attempt, MAX_ATTEMPTS, e.getMessage());
             }
-        }
-        log.info("Tesla: scraped {} unique SCM job(s)", byId.size());
-        return new ArrayList<>(byId.values());
-    }
-
-    @SuppressWarnings("unchecked")
-    private void scrapeQuery(Page page, String query, Map<String, JobPosting> byId) {
-        String url = String.format(SEARCH_URL, URLEncoder.encode(query, StandardCharsets.UTF_8));
-        page.navigate(
-                url,
-                new Page.NavigateOptions()
-                        .setWaitUntil(WaitUntilState.NETWORKIDLE)
-                        .setTimeout(30000));
-
-        String bodyStart =
-                (String) page.evaluate("() => document.body?.innerText?.substring(0, 200) || ''");
-        if (bodyStart.contains("Access Denied")) {
-            log.debug("Tesla: blocked by WAF for query '{}', skipping", query);
-            return;
-        }
-
-        try {
-            page.waitForSelector(
-                    "a[href*='/careers/job/']",
-                    new Page.WaitForSelectorOptions().setTimeout(15000));
-        } catch (Exception e) {
-            log.debug("Tesla: no job links for query '{}'", query);
-            return;
-        }
-
-        List<Map<String, String>> jobs =
-                (List<Map<String, String>>)
-                        page.evaluate(
-                                "() => {\n"
-                                        + "  const results = [];\n"
-                                        + "  const seen = new Set();\n"
-                                        + "  const links = document.querySelectorAll("
-                                        + "\"a[href*='/careers/job/']\");\n"
-                                        + "  links.forEach(link => {\n"
-                                        + "    const href = link.getAttribute('href') || '';\n"
-                                        + "    const idMatch = href.match(/\\/job\\/(\\d+)/);\n"
-                                        + "    if (!idMatch || seen.has(idMatch[1])) return;\n"
-                                        + "    seen.add(idMatch[1]);\n"
-                                        + "    const card = link.closest('li')"
-                                        + " || link.closest('div') || link;\n"
-                                        + "    const titleEl = card.querySelector('h2, h3') || link;\n"
-                                        + "    const title = titleEl.textContent.trim();\n"
-                                        + "    if (!title || title.length < 3) return;\n"
-                                        + "    let location = '';\n"
-                                        + "    const spans = card.querySelectorAll('span');\n"
-                                        + "    for (const s of spans) {\n"
-                                        + "      const text = s.textContent.trim();\n"
-                                        + "      if (text && text !== title && text.length < 100) {\n"
-                                        + "        location = text; break;\n"
-                                        + "      }\n"
-                                        + "    }\n"
-                                        + "    results.push({\n"
-                                        + "      id: idMatch[1],\n"
-                                        + "      title: title,\n"
-                                        + "      url: href.startsWith('http') ? href"
-                                        + " : 'https://www.tesla.com' + href,\n"
-                                        + "      location: location\n"
-                                        + "    });\n"
-                                        + "  });\n"
-                                        + "  return results;\n"
-                                        + "}");
-
-        if (jobs == null) {
-            return;
-        }
-        for (Map<String, String> job : jobs) {
-            String id = job.getOrDefault("id", "");
-            if (id.isEmpty()) {
-                continue;
-            }
-            byId.putIfAbsent(
-                    id,
-                    JobPosting.builder()
-                            .company("tesla")
-                            .externalId(id)
-                            .title(job.getOrDefault("title", ""))
-                            .url(job.getOrDefault("url", ""))
-                            .location(job.getOrDefault("location", ""))
-                            .postedDate(null)
-                            .detectedAt(Instant.now())
-                            .build());
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * <p>Opens a fresh Playwright context and navigates to each unseen job's detail page. Called
-     * post-dedup so only unseen jobs pay the navigation cost.
-     */
-    @Override
-    public void fetchDescriptions(List<JobPosting> jobs) {
-        if (jobs.isEmpty()) return;
-        log.info("Tesla: fetching descriptions for {} unseen job(s)", jobs.size());
-        // Serialize on the shared browser — Playwright is not thread-safe (see scrape()).
-        synchronized (browser) {
-            try (BrowserContext ctx =
-                    browser.newContext(
-                            new Browser.NewContextOptions()
-                                    .setUserAgent(USER_AGENT)
-                                    .setViewportSize(1920, 1080))) {
-                Page page = ctx.newPage();
-                for (JobPosting job : jobs) {
-                    job.setDescription(fetchJobDescription(page, job.getUrl()));
+            if (attempt < MAX_ATTEMPTS) {
+                try {
+                    Thread.sleep(RETRY_DELAY.toMillis());
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
                 }
-            } catch (Exception e) {
-                log.error("Tesla: failed to fetch descriptions", e);
             }
         }
-    }
-
-    private String fetchJobDescription(Page page, String jobUrl) {
-        if (jobUrl == null || jobUrl.isBlank()) {
-            return "";
-        }
-        try {
-            page.navigate(
-                    jobUrl,
-                    new Page.NavigateOptions()
-                            .setWaitUntil(WaitUntilState.NETWORKIDLE)
-                            .setTimeout(15000));
-            Object result =
-                    page.evaluate(
-                            "() => {\n"
-                                    + "  const sections = document.querySelectorAll("
-                                    + "'section, [role=\"main\"], article');\n"
-                                    + "  for (const s of sections) {\n"
-                                    + "    const text = s.innerText || '';\n"
-                                    + "    if (text.length > 100) return text.substring(0, 2000);\n"
-                                    + "  }\n"
-                                    + "  return document.body?.innerText?.substring(0, 2000) || '';\n"
-                                    + "}");
-            return result instanceof String s ? s.replaceAll("\\s+", " ").trim() : "";
-        } catch (Exception e) {
-            log.debug("Tesla: failed to fetch description for {}: {}", jobUrl, e.getMessage());
-            return "";
-        }
+        return null;
     }
 }

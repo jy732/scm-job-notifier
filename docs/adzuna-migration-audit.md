@@ -133,6 +133,29 @@ not worth it for 3 companies. **Resolution:** companies commented out in `applic
 originally surfaced). The Playwright thread-safety fix (serialize the shared browser across
 Apple/Tesla/BrassRing) and the CA-location fix stay — both are independently valuable.
 
+### Tesla — SOLVED via Bright Data Web Unlocker (2026-08-20)
+Tesla's whole board is one JSON call — `GET /cua-api/apps/careers/state` returns ~7.8k listings plus
+a `lookup` dict (locations/types/departments) — but it's guarded by **Akamai Bot Manager AND an
+app-level `cpr_chlge` challenge**. Proven end-to-end that nothing direct/Playwright gets in: bare
+`curl`, headless Chromium, and **headful real Google Chrome on the user's own residential IP** all
+returned `Access Denied`. The Akamai `_abck`/`bm_*` cookies are only minted by a genuine
+sensor-validated browser and carry a ~57-min validity window, so borrowed cookies aren't a
+production answer. Endpoint + schema were reverse-engineered from a DevTools cURL capture (listing
+row `{id, t=title, l=locationId, y=typeId, dp=deptId}`; `lookup.locations[l]` → `"City, State"`,
+`lookup.types` → fulltime/intern).
+
+Fix: `TeslaScraper` fetches the state JSON through **Bright Data Web Unlocker** (`POST
+api.brightdata.com/request`, zone `scm_unlocker`, `format:raw`), which mints valid cookies and
+returns the board; `TeslaStateParser` resolves the codes into `JobPosting`s with canonical Tesla ids
+(dupe-clean). The unlocker intermittently returns the `cpr_chlge` stub instead of the board (rotating
+IP hasn't solved it; a real board is ~1.5 MB), so the scraper **retries, spaced**, until the body
+contains `listings`, and **throttles to hourly** to stay within the free 5,000-credit/month tier.
+Validated live: **7,817 listings → 2,101 CA → 176 CA-SCM**. Token/zone come from `.env`
+(`BRIGHTDATA_TOKEN`/`BRIGHTDATA_ZONE`), disabled unless set. Note the Web Unlocker fixes
+**anti-bot/IP/JS-challenge** blocks only — it does **not** fix BrassRing (login wall) and is
+unnecessary for the open-API scrapers (Workday/Greenhouse/etc.). Meta (IP/rate-limit block) is the
+next candidate for the same treatment.
+
 ### Takeaway
 The migratable pool is **nearly exhausted**. Of ~230 distinct un-migrated employers: ~48 are
 staffing/recruiters (skip), a large block are already-migrated stale rows, a handful are on

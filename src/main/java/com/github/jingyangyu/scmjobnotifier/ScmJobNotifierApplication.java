@@ -7,6 +7,7 @@ import com.github.jingyangyu.scmjobnotifier.config.OracleCloudProperties;
 import com.github.jingyangyu.scmjobnotifier.config.PaylocityProperties;
 import com.github.jingyangyu.scmjobnotifier.config.ProxyProperties;
 import com.github.jingyangyu.scmjobnotifier.config.SuccessFactorsProperties;
+import com.github.jingyangyu.scmjobnotifier.config.TeslaProperties;
 import com.github.jingyangyu.scmjobnotifier.config.WorkdayProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -30,6 +31,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     PaylocityProperties.class,
     BrassRingProperties.class,
     ProxyProperties.class,
+    TeslaProperties.class,
     AdzunaProperties.class
 })
 public class ScmJobNotifierApplication {
