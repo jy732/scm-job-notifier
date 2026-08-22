@@ -161,11 +161,15 @@ ByteDance runs its own recruiting platform (not a supported ATS), but its career
 **fully open** JSON endpoint: `POST jobs.bytedance.com/api/v1/search/job/posts?keyword=&limit=&offset=`
 — no auth, no bot wall, returns `{"code":0,"data":{"count":N,"job_post_list":[…]}}`. New
 `ByteDanceScraper` runs the SCM free-text queries, paginates by `offset` to `count`, and unions by id;
-location comes from each row's `city_list[].en_name` (global board → the CA pre-filter enforces
-California; ByteDance's US SCM hub is **San Jose**). Live: ~**475 unique SCM candidates → 32 CA**.
-Added `bytedance`/`tiktok`/`douyin` to the Adzuna exclude tokens (dupe hygiene). **TikTok** (now
-`lifeattiktok.com`) uses the same platform but its search endpoint is method/host-gated (405 to the
-obvious path) — needs a DevTools capture to add, like Tesla.
+location comes from each row's `city_list[].en_name` (ByteDance) / `city_info.en_name` (TikTok) —
+global boards, so the CA pre-filter enforces California (US SCM hubs: San Jose, LA, Fontana).
+`ByteDanceScraper` covers **two brands**:
+- **bytedance** — `POST jobs.bytedance.com/api/v1/search/job/posts` — live ~**477 SCM → 32 CA**.
+- **tiktok** — `POST api.lifeattiktok.com/api/v1/public/supplier/search/job/posts` with a
+  **`website-path: tiktok`** header (the brand selector; without it the call 405s) — live ~**506 SCM
+  → 117 CA** (Fontana/San Jose/LA TikTok Shop supply-chain roles, incl. 2027 new-grad).
+
+Added `bytedance`/`tiktok`/`douyin` to the Adzuna exclude tokens (dupe hygiene).
 
 ### Takeaway
 The migratable pool is **nearly exhausted**. Of ~230 distinct un-migrated employers: ~48 are

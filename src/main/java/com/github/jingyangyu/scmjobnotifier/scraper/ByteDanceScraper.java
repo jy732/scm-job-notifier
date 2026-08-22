@@ -17,26 +17,28 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Scraper for ByteDance Careers via their public job-search API.
+ * Scraper for the ByteDance job family (ByteDance corp + TikTok) via their public job-search API.
  *
- * <p>ByteDance runs its own recruiting platform (not a supported ATS); its careers site fetches
- * from {@code jobs.bytedance.com/api/v1/search/job/posts} — an open JSON endpoint (no auth, no bot
- * wall) that takes a keyword + pagination and returns coded job rows. We run each SCM free-text
- * query, paginate via {@code offset} until the reported {@code count} is exhausted, and union the
- * results de-duplicated by id. The board is global, so location comes from each row's {@code
- * city_list} (English city names joined) and the downstream {@code isCaliforniaLocation} pre-filter
- * enforces CA (ByteDance's US supply-chain hub is San Jose). Descriptions come inline
- * (single-phase).
+ * <p>ByteDance runs its own recruiting platform (not a supported ATS). Each brand exposes an open
+ * JSON search endpoint (no auth, no bot wall) that takes a keyword + pagination and returns coded
+ * job rows:
  *
- * <p>TikTok (now {@code lifeattiktok.com}) uses the same platform but a differently-gated search
- * endpoint — not covered here yet.
+ * <ul>
+ *   <li><b>bytedance</b> — {@code jobs.bytedance.com/api/v1/search/job/posts}
+ *   <li><b>tiktok</b> — {@code api.lifeattiktok.com/api/v1/public/supplier/search/job/posts} with a
+ *       {@code website-path: tiktok} header (the brand selector — without it the call 405s)
+ * </ul>
+ *
+ * We run each SCM free-text query per brand, paginate via {@code offset} until the reported {@code
+ * count} is exhausted, and union de-duplicated by id. The boards are global, so location comes from
+ * each row's {@code city_list} (ByteDance) or {@code city_info} (TikTok) — English city names — and
+ * the downstream {@code isCaliforniaLocation} pre-filter enforces CA (US SCM hubs: San Jose, LA,
+ * Fontana). Descriptions come inline (single-phase).
  */
 @Slf4j
 @Component
 public class ByteDanceScraper implements JobScraper {
 
-    private static final String API = "https://jobs.bytedance.com/api/v1/search/job/posts";
-    private static final String JOB_URL = "https://jobs.bytedance.com/en/position/%s/detail";
     private static final int PAGE_SIZE = 50;
 
     /** Safety cap; SCM keyword results are well under this many pages. */
@@ -57,6 +59,25 @@ public class ByteDanceScraper implements JobScraper {
                     "inventory",
                     "commodity manager");
 
+    /**
+     * One brand's search endpoint. {@code websitePath} is the {@code website-path} header (or
+     * null).
+     */
+    private record Portal(String company, String api, String jobUrlTemplate, String websitePath) {}
+
+    private static final List<Portal> PORTALS =
+            List.of(
+                    new Portal(
+                            "bytedance",
+                            "https://jobs.bytedance.com/api/v1/search/job/posts",
+                            "https://jobs.bytedance.com/en/position/%s/detail",
+                            null),
+                    new Portal(
+                            "tiktok",
+                            "https://api.lifeattiktok.com/api/v1/public/supplier/search/job/posts",
+                            "https://lifeattiktok.com/position/%s/detail",
+                            "tiktok"));
+
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
 
@@ -68,7 +89,10 @@ public class ByteDanceScraper implements JobScraper {
                         .codecs(c -> c.defaultCodecs().maxInMemorySize(8 * 1024 * 1024))
                         .build();
         this.objectMapper = objectMapper;
-        log.info("ByteDance scraper initialized ({} SCM queries)", SCM_QUERIES.size());
+        log.info(
+                "ByteDance scraper initialized ({} brands, {} SCM queries)",
+                PORTALS.size(),
+                SCM_QUERIES.size());
     }
 
     @Override
@@ -78,32 +102,39 @@ public class ByteDanceScraper implements JobScraper {
 
     @Override
     public List<String> companies() {
-        return List.of("bytedance");
+        return PORTALS.stream().map(Portal::company).toList();
     }
 
     @Override
     public List<JobPosting> scrape(String company) {
+        Portal portal =
+                PORTALS.stream().filter(p -> p.company().equals(company)).findFirst().orElse(null);
+        if (portal == null) {
+            log.warn("ByteDance: no portal for company '{}'", company);
+            return List.of();
+        }
         Map<String, JobPosting> byId = new LinkedHashMap<>();
         for (String query : SCM_QUERIES) {
             try {
-                fetchQuery(query, byId);
+                fetchQuery(portal, query, byId);
             } catch (Exception e) {
-                log.error("ByteDance SCM query '{}' failed", query, e);
+                log.error("ByteDance [{}] SCM query '{}' failed", company, query, e);
             }
         }
         log.info(
-                "ByteDance: {} unique SCM candidate(s) across {} queries",
+                "ByteDance [{}]: {} unique SCM candidate(s) across {} queries",
+                company,
                 byId.size(),
                 SCM_QUERIES.size());
         return new ArrayList<>(byId.values());
     }
 
-    private void fetchQuery(String query, Map<String, JobPosting> byId) {
+    private void fetchQuery(Portal portal, String query, Map<String, JobPosting> byId) {
         int offset = 0;
         int count = Integer.MAX_VALUE;
         for (int page = 0; page < MAX_PAGES && offset < count; page++) {
             String uri =
-                    API
+                    portal.api()
                             + "?keyword="
                             + URLEncoder.encode(query, StandardCharsets.UTF_8)
                             + "&limit="
@@ -123,6 +154,12 @@ public class ByteDanceScraper implements JobScraper {
                             .post()
                             .uri(uri)
                             .header(HttpHeaders.REFERER, "https://jobs.bytedance.com/")
+                            .headers(
+                                    h -> {
+                                        if (portal.websitePath() != null) {
+                                            h.set("website-path", portal.websitePath());
+                                        }
+                                    })
                             .contentType(MediaType.APPLICATION_JSON)
                             .bodyValue(body)
                             .retrieve()
@@ -133,7 +170,11 @@ public class ByteDanceScraper implements JobScraper {
             }
             JsonNode root = objectMapper.readTree(resp);
             if (root.path("code").asInt(-1) != 0) {
-                log.warn("ByteDance: non-zero code for query '{}': {}", query, root.path("code"));
+                log.warn(
+                        "ByteDance [{}]: non-zero code for query '{}': {}",
+                        portal.company(),
+                        query,
+                        root.path("code"));
                 break;
             }
             JsonNode data = root.path("data");
@@ -143,7 +184,7 @@ public class ByteDanceScraper implements JobScraper {
                 break;
             }
             for (JsonNode j : list) {
-                JobPosting posting = toJobPosting(j);
+                JobPosting posting = toJobPosting(portal, j);
                 if (!posting.getExternalId().isEmpty()) {
                     byId.putIfAbsent(posting.getExternalId(), posting);
                 }
@@ -152,26 +193,41 @@ public class ByteDanceScraper implements JobScraper {
         }
     }
 
-    private JobPosting toJobPosting(JsonNode j) {
+    private JobPosting toJobPosting(Portal portal, JsonNode j) {
         String id = j.path("id").asString("");
-        List<String> cities = new ArrayList<>();
-        for (JsonNode c : j.path("city_list")) {
-            String en = c.path("en_name").asString("");
-            if (!en.isBlank()) {
-                cities.add(en);
-            }
-        }
         return JobPosting.builder()
-                .company("bytedance")
+                .company(portal.company())
                 .externalId(id)
                 .title(j.path("title").asString(""))
-                .url(String.format(JOB_URL, id))
-                .location(String.join("; ", cities))
+                .url(String.format(portal.jobUrlTemplate(), id))
+                .location(extractLocation(j))
                 .description(stripHtml(j.path("description").asString("")))
                 .postedDate(null)
                 .detectedAt(Instant.now())
                 .notified(false)
                 .build();
+    }
+
+    /**
+     * ByteDance rows carry {@code city_list} (array); TikTok rows carry {@code city_info} (single).
+     */
+    private static String extractLocation(JsonNode j) {
+        List<String> cities = new ArrayList<>();
+        JsonNode cityList = j.path("city_list");
+        if (cityList.isArray() && !cityList.isEmpty()) {
+            for (JsonNode c : cityList) {
+                String en = c.path("en_name").asString("");
+                if (!en.isBlank()) {
+                    cities.add(en);
+                }
+            }
+        } else {
+            String en = j.path("city_info").path("en_name").asString("");
+            if (!en.isBlank()) {
+                cities.add(en);
+            }
+        }
+        return String.join("; ", cities);
     }
 
     private static String stripHtml(String html) {
