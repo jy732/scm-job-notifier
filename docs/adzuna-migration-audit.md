@@ -171,6 +171,28 @@ global boards, so the CA pre-filter enforces California (US SCM hubs: San Jose, 
 
 Added `bytedance`/`tiktok`/`douyin` to the Adzuna exclude tokens (dupe hygiene).
 
+### Bay-Area large-employer sweep (2026-08-22)
+Systematic hunt for big Bay SCM employers we were missing (the ByteDance/TikTok lesson). Key
+finding: "large company" ≠ "large SCM" — most big tech on easy ATSes (Roku, Block, Arista, PayPal,
+Visa, eBay) is tech-heavy with ~0 supply-chain. The real misses are **physical-ops** employers.
+Added (all validated via test poll unless noted):
+
+| Employer | ATS / how | Live CA-SCM |
+|---|---|---|
+| **Flex/Flextronics** | Workday `flextronics`/wd1/`Careers` | 1085 → 29 CA → 3 SCM |
+| **Logitech** | Workday `logitech`/wd5/`logitech` | thin (1 CA) but real CA HQ |
+| **Google** | Playwright DOM scrape of `google.com/about/careers/applications/jobs/results` (ported from swe-job-notifier; no public JSON API — v3 404s) | 136 → 25 CA (huge board; SCM mostly senior) |
+| **Supermicro** | SuccessFactors `jobs.supermicro.com` (CSB tile-search) | 370 → 42 CA → **9 notifiable** |
+| **Lam Research** | Eightfold **pcsx** API `careers.lamresearch.com/api/pcsx/search` (no auth) | 393 → **71 CA** (Livermore/Fremont) |
+
+Excluded google/lamresearch from the Adzuna long-tail (bytedance/tiktok/douyin already; supermicro
+auto-excludes via its SF company name).
+
+**Deferred (need work):** Albertsons/Safeway (Oracle CE `eofd`/us6/`CX_1001` verified, but our Oracle
+scraper fetches the whole board — needs keyword-filtering added for grocery volume); Ross Stores
+(`jobs.rossstores.com/Search/SearchResults` JSON works but is session/anti-bot gated — needs a
+cookie bootstrap); Palo Alto Networks (Phenom **SSR** — no jobs XHR, only 18 SCM results, thin).
+
 ### Takeaway
 The migratable pool is **nearly exhausted**. Of ~230 distinct un-migrated employers: ~48 are
 staffing/recruiters (skip), a large block are already-migrated stale rows, a handful are on
