@@ -156,6 +156,17 @@ Validated live: **7,817 listings → 2,101 CA → 176 CA-SCM**. Token/zone come 
 unnecessary for the open-API scrapers (Workday/Greenhouse/etc.). Meta (IP/rate-limit block) is the
 next candidate for the same treatment.
 
+### ByteDance — added via open careers API (2026-08-21)
+ByteDance runs its own recruiting platform (not a supported ATS), but its careers site fetches from a
+**fully open** JSON endpoint: `POST jobs.bytedance.com/api/v1/search/job/posts?keyword=&limit=&offset=`
+— no auth, no bot wall, returns `{"code":0,"data":{"count":N,"job_post_list":[…]}}`. New
+`ByteDanceScraper` runs the SCM free-text queries, paginates by `offset` to `count`, and unions by id;
+location comes from each row's `city_list[].en_name` (global board → the CA pre-filter enforces
+California; ByteDance's US SCM hub is **San Jose**). Live: ~**475 unique SCM candidates → 32 CA**.
+Added `bytedance`/`tiktok`/`douyin` to the Adzuna exclude tokens (dupe hygiene). **TikTok** (now
+`lifeattiktok.com`) uses the same platform but its search endpoint is method/host-gated (405 to the
+obvious path) — needs a DevTools capture to add, like Tesla.
+
 ### Takeaway
 The migratable pool is **nearly exhausted**. Of ~230 distinct un-migrated employers: ~48 are
 staffing/recruiters (skip), a large block are already-migrated stale rows, a handful are on

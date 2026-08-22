@@ -124,7 +124,15 @@ public class AdzunaScraper implements JobScraper {
         this.props = props;
         this.excludeTokens =
                 buildExcludeTokens(
-                        workday, oracle, icims, sf, paylocity, brassring, greenhouse, lever, ashby,
+                        workday,
+                        oracle,
+                        icims,
+                        sf,
+                        paylocity,
+                        brassring,
+                        greenhouse,
+                        lever,
+                        ashby,
                         smartrecruiters);
         log.info(
                 "Adzuna scraper initialized (configured={}, {} exclude tokens, throttle={}m)",
@@ -156,8 +164,17 @@ public class AdzunaScraper implements JobScraper {
                 addToken(tokens, slug);
             }
         }
-        // bespoke single-company scrapers
-        for (String s : List.of("amazon", "microsoft", "apple", "tesla", "meta")) {
+        // bespoke single-company scrapers (bytedance also covers its tiktok/douyin brands)
+        for (String s :
+                List.of(
+                        "amazon",
+                        "microsoft",
+                        "apple",
+                        "tesla",
+                        "meta",
+                        "bytedance",
+                        "tiktok",
+                        "douyin")) {
             addToken(tokens, s);
         }
         // display-name aliases for cryptic slugs
