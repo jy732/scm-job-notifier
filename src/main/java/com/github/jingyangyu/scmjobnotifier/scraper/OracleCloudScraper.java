@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -33,6 +34,18 @@ public class OracleCloudScraper implements JobScraper {
      * off mid-scrape anyway. Bounds the scrape to {@value} × {@link #PAGE_SIZE} newest-listed reqs.
      */
     private static final int MAX_PAGES = 80;
+
+    /** SCM keyword queries for {@code keywordFiltered} tenants (union de-duplicated by req id). */
+    private static final List<String> SCM_QUERIES =
+            List.of(
+                    "supply chain",
+                    "procurement",
+                    "logistics",
+                    "planner",
+                    "buyer",
+                    "inventory",
+                    "distribution",
+                    "sourcing");
 
     private final WebClient webClient;
     private final OracleCloudProperties properties;
@@ -75,53 +88,81 @@ public class OracleCloudScraper implements JobScraper {
         }
 
         OracleCloudCompany config = configOpt.get();
-        List<JobPosting> allJobs = new ArrayList<>();
-        int offset = 0;
+        Map<String, JobPosting> byId = new LinkedHashMap<>();
 
         try {
-            for (int page = 0; page < MAX_PAGES; page++) {
-                Map<String, Object> response = fetchPage(config, offset);
-                if (response == null) {
-                    break;
+            if (config.isKeywordFiltered()) {
+                // Huge tenant (grocery/retail) — scrape by SCM keyword so the relevant roles aren't
+                // buried past MAX_PAGES behind thousands of store jobs.
+                for (String query : SCM_QUERIES) {
+                    try {
+                        paginate(company, config, query, byId);
+                    } catch (Exception e) {
+                        log.warn(
+                                "Oracle Cloud [{}] query '{}' failed: {}",
+                                company,
+                                query,
+                                e.getMessage());
+                    }
                 }
-
-                List<Map<String, Object>> items =
-                        (List<Map<String, Object>>)
-                                response.getOrDefault("items", Collections.emptyList());
-                if (items.isEmpty()) {
-                    break;
-                }
-
-                // The first item contains requisitionList and TotalJobsCount
-                Map<String, Object> wrapper = items.get(0);
-                int totalJobs = ((Number) wrapper.getOrDefault("TotalJobsCount", 0)).intValue();
-
-                List<Map<String, Object>> requisitions =
-                        (List<Map<String, Object>>)
-                                wrapper.getOrDefault("requisitionList", Collections.emptyList());
-
-                for (Map<String, Object> req : requisitions) {
-                    allJobs.add(toJobPosting(company, config, req));
-                }
-
-                offset += PAGE_SIZE;
-                if (offset >= totalJobs || requisitions.isEmpty()) {
-                    break;
-                }
+                log.info(
+                        "Oracle Cloud [{}]: scraped {} SCM candidate(s) via keyword",
+                        company,
+                        byId.size());
+            } else {
+                paginate(company, config, null, byId);
+                log.info("Oracle Cloud [{}]: scraped {} total job(s)", company, byId.size());
             }
-
-            log.info("Oracle Cloud [{}]: scraped {} total job(s)", company, allJobs.size());
-            return allJobs;
+            return new ArrayList<>(byId.values());
         } catch (Exception e) {
             log.error("Failed to scrape Oracle Cloud for company: {}", company, e);
-            return allJobs;
+            return new ArrayList<>(byId.values());
         }
     }
 
-    private Map<String, Object> fetchPage(OracleCloudCompany config, int offset) {
+    /** Paginates one query (or the whole board when {@code keyword} is null) into {@code byId}. */
+    @SuppressWarnings("unchecked")
+    private void paginate(
+            String company,
+            OracleCloudCompany config,
+            String keyword,
+            Map<String, JobPosting> byId) {
+        int offset = 0;
+        for (int page = 0; page < MAX_PAGES; page++) {
+            Map<String, Object> response = fetchPage(config, offset, keyword);
+            if (response == null) {
+                break;
+            }
+            List<Map<String, Object>> items =
+                    (List<Map<String, Object>>)
+                            response.getOrDefault("items", Collections.emptyList());
+            if (items.isEmpty()) {
+                break;
+            }
+            // The first item contains requisitionList and TotalJobsCount
+            Map<String, Object> wrapper = items.get(0);
+            int totalJobs = ((Number) wrapper.getOrDefault("TotalJobsCount", 0)).intValue();
+            List<Map<String, Object>> requisitions =
+                    (List<Map<String, Object>>)
+                            wrapper.getOrDefault("requisitionList", Collections.emptyList());
+            for (Map<String, Object> req : requisitions) {
+                JobPosting posting = toJobPosting(company, config, req);
+                byId.putIfAbsent(posting.getExternalId(), posting);
+            }
+            offset += PAGE_SIZE;
+            if (offset >= totalJobs || requisitions.isEmpty()) {
+                break;
+            }
+        }
+    }
+
+    private Map<String, Object> fetchPage(OracleCloudCompany config, int offset, String keyword) {
         return webClient
                 .get()
-                .uri(config.apiUrl(PAGE_SIZE, offset))
+                // Pass a URI (not a String) so WebClient uses the already-encoded URL verbatim —
+                // otherwise it re-encodes the %-escapes (e.g. keyword=%22..%22 -> %2522..%2522),
+                // which silently mangles the keyword filter to 0 results.
+                .uri(java.net.URI.create(config.apiUrl(PAGE_SIZE, offset, keyword)))
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
