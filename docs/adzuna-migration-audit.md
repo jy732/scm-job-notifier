@@ -202,6 +202,17 @@ scrape against. eBay (public jobs on Phenom, Workday tenant internal), Roku/Bloc
 (checked — thin SCM despite size), Lam-via-Eightfold-SmartApply and Juniper/Coherter/Seagate
 (unsupported/no clean surface).
 
+### levels.fyi-style sweep for SCM-heavy CA companies (2026-08-22)
+Cross-referenced big CA hardware/semi employers against the roster. Finds: most were already
+covered or unreachable — **AMD/Rivian** (Kenexa BrassRing, login-gated), **Synopsys** (Avature),
+**Masimo** (SmartRecruiters but ~1 job), **BioMarin** (no supported ATS), **Exelixis** (Workday
+tenant `exelixis`/wd1 but site id not guessable — deferred). **One big win: Qualcomm** — careers.
+qualcomm.com is Eightfold, reachable via the same `pcsx` API as Lam Research. Generalized
+`LamResearchScraper` → **`EightfoldScraper`** (config-driven portals): **lamresearch** (383 → 71 CA)
++ **qualcomm** (165 → **67 CA**, San Diego: Supply Chain Manager Capacity Planning, IT Supply Chain
+Planning, Supply Chain Analyst). Excluded qualcomm from Adzuna. Note: the Eightfold pcsx API needs
+an `Accept: application/json` header (Qualcomm returns HTML without it).
+
 ### Takeaway
 The migratable pool is **nearly exhausted**. Of ~230 distinct un-migrated employers: ~48 are
 staffing/recruiters (skip), a large block are already-migrated stale rows, a handful are on

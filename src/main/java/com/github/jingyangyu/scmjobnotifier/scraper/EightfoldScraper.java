@@ -16,25 +16,24 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Scraper for Lam Research Careers (Fremont/Livermore semiconductor-equipment maker), which runs on
- * Eightfold AI.
+ * Scraper for CA employers on Eightfold AI, via its public "pcsx" search API.
  *
- * <p>Lam's career site exposes Eightfold's public "pcsx" search API — {@code
- * careers.lamresearch.com/api/pcsx/search?domain=lamresearch.com&query=&location=&start=} — which
- * returns JSON {@code data.positions[]} (no auth needed). We run the SCM free-text queries,
- * paginate by {@code start}, and union de-duplicated by id. Locations come back like {@code
- * "US-CA-Livermore (1028)"}, so the downstream California pre-filter matches; Lam's SCM hub is
- * Fremont/Livermore CA. Descriptions come inline are not provided by the list endpoint (title +
- * location suffice for the pre-filters).
+ * <p>Eightfold-hosted career sites expose {@code {host}/api/pcsx/search?domain={domain}&query=&
+ * location=&start=} (no auth), returning JSON {@code data.positions[]}. Each configured company is
+ * a portal (host + domain); we run the SCM free-text queries per company, paginate by {@code
+ * start}, and union de-duplicated by id. Locations come back like {@code "US-CA-Fremont (1003)"} or
+ * {@code "San Diego, California, United States of America"}, so the downstream California
+ * pre-filter matches.
+ *
+ * <ul>
+ *   <li><b>lamresearch</b> — Fremont/Livermore semiconductor-equipment SCM
+ *   <li><b>qualcomm</b> — San Diego semiconductor SCM (Capacity Planning, Sourcing, Supply Chain)
+ * </ul>
  */
 @Slf4j
 @Component
-public class LamResearchScraper implements JobScraper {
+public class EightfoldScraper implements JobScraper {
 
-    private static final String API =
-            "https://careers.lamresearch.com/api/pcsx/search"
-                    + "?domain=lamresearch.com&location=&start=%d&query=%s";
-    private static final String JOB_URL = "https://careers.lamresearch.com/careers?pid=%s";
     private static final int MAX_PAGES = 15;
     private static final String USER_AGENT =
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -51,10 +50,21 @@ public class LamResearchScraper implements JobScraper {
                     "buyer",
                     "materials");
 
+    /**
+     * One Eightfold career site: {@code company} identifier, {@code host}, and {@code domain}
+     * param.
+     */
+    private record Portal(String company, String host, String domain) {}
+
+    private static final List<Portal> PORTALS =
+            List.of(
+                    new Portal("lamresearch", "careers.lamresearch.com", "lamresearch.com"),
+                    new Portal("qualcomm", "careers.qualcomm.com", "qualcomm.com"));
+
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
 
-    public LamResearchScraper(WebClient.Builder webClientBuilder, ObjectMapper objectMapper) {
+    public EightfoldScraper(WebClient.Builder webClientBuilder, ObjectMapper objectMapper) {
         this.webClient =
                 webClientBuilder
                         .defaultHeader(HttpHeaders.USER_AGENT, USER_AGENT)
@@ -62,47 +72,63 @@ public class LamResearchScraper implements JobScraper {
                         .build();
         this.objectMapper = objectMapper;
         log.info(
-                "Lam Research scraper initialized (Eightfold pcsx, {} SCM queries)",
+                "Eightfold scraper initialized ({} sites, {} SCM queries)",
+                PORTALS.size(),
                 SCM_QUERIES.size());
     }
 
     @Override
     public String platform() {
-        return "lamresearch";
+        return "eightfold";
     }
 
     @Override
     public List<String> companies() {
-        return List.of("lamresearch");
+        return PORTALS.stream().map(Portal::company).toList();
     }
 
     @Override
     public List<JobPosting> scrape(String company) {
+        Portal portal =
+                PORTALS.stream().filter(p -> p.company().equals(company)).findFirst().orElse(null);
+        if (portal == null) {
+            log.warn("Eightfold: no portal for company '{}'", company);
+            return List.of();
+        }
         Map<String, JobPosting> byId = new LinkedHashMap<>();
         for (String query : SCM_QUERIES) {
             try {
-                fetchQuery(query, byId);
+                fetchQuery(portal, query, byId);
             } catch (Exception e) {
-                log.error("Lam Research SCM query '{}' failed", query, e);
+                log.error("Eightfold [{}] SCM query '{}' failed", company, query, e);
             }
         }
         log.info(
-                "Lam Research: {} unique SCM candidate(s) across {} queries",
+                "Eightfold [{}]: {} unique SCM candidate(s) across {} queries",
+                company,
                 byId.size(),
                 SCM_QUERIES.size());
         return new ArrayList<>(byId.values());
     }
 
-    private void fetchQuery(String query, Map<String, JobPosting> byId) {
+    private void fetchQuery(Portal portal, String query, Map<String, JobPosting> byId) {
         int start = 0;
         for (int page = 0; page < MAX_PAGES; page++) {
             String uri =
-                    String.format(API, start, URLEncoder.encode(query, StandardCharsets.UTF_8));
+                    "https://"
+                            + portal.host()
+                            + "/api/pcsx/search?domain="
+                            + portal.domain()
+                            + "&location=&start="
+                            + start
+                            + "&query="
+                            + URLEncoder.encode(query, StandardCharsets.UTF_8);
             String resp =
                     webClient
                             .get()
-                            .uri(uri)
-                            .header(HttpHeaders.REFERER, "https://careers.lamresearch.com/careers")
+                            .uri(java.net.URI.create(uri))
+                            .header(HttpHeaders.REFERER, "https://" + portal.host() + "/careers")
+                            .header(HttpHeaders.ACCEPT, "application/json, text/plain, */*")
                             .retrieve()
                             .bodyToMono(String.class)
                             .block();
@@ -114,7 +140,7 @@ public class LamResearchScraper implements JobScraper {
                 break;
             }
             for (JsonNode p : positions) {
-                JobPosting posting = toJobPosting(p);
+                JobPosting posting = toJobPosting(portal, p);
                 if (!posting.getExternalId().isEmpty()) {
                     byId.putIfAbsent(posting.getExternalId(), posting);
                 }
@@ -123,21 +149,20 @@ public class LamResearchScraper implements JobScraper {
         }
     }
 
-    private JobPosting toJobPosting(JsonNode p) {
+    private JobPosting toJobPosting(Portal portal, JsonNode p) {
         String id = p.path("id").asString("");
         List<String> locs = new ArrayList<>();
         for (JsonNode l : p.path("locations")) {
-            // "US-CA-Livermore (1028)" -> drop the trailing "(code)"
             String loc = l.asString("").replaceAll("\\s*\\(\\d+\\)\\s*$", "").trim();
             if (!loc.isBlank()) {
                 locs.add(loc);
             }
         }
         return JobPosting.builder()
-                .company("lamresearch")
+                .company(portal.company())
                 .externalId(id)
                 .title(p.path("name").asString(""))
-                .url(String.format(JOB_URL, id))
+                .url("https://" + portal.host() + "/careers?pid=" + id)
                 .location(String.join("; ", locs))
                 .description("")
                 .postedDate(null)
