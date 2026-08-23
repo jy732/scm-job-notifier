@@ -213,6 +213,12 @@ qualcomm.com is Eightfold, reachable via the same `pcsx` API as Lam Research. Ge
 Planning, Supply Chain Analyst). Excluded qualcomm from Adzuna. Note: the Eightfold pcsx API needs
 an `Accept: application/json` header (Qualcomm returns HTML without it).
 
+Second batch (food/bev, utilities, retail): **PG&E** added — SuccessFactors `careers.pge.com`, 51 →
+26 CA (Oakland: Category Leader, Procurement Program Manager, Service Procurement Analyst — utility
+procurement, config-only like Supermicro). Deferred/skipped: E&J Gallo (SF but `tile-search-results`
+404s — needs the real CSB path), RH (Oracle SPA, tenant not exposed), Petco (Phenom, ~2 procurement
+— thin), Taylor Farms / SCE / Sempra / Williams-Sonoma (no supported ATS).
+
 ### Takeaway
 The migratable pool is **nearly exhausted**. Of ~230 distinct un-migrated employers: ~48 are
 staffing/recruiters (skip), a large block are already-migrated stale rows, a handful are on
