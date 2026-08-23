@@ -146,6 +146,9 @@ final class FilterKeywords {
     static final List<String> SCM_KEYWORDS =
             List.of(
                     "supply chain",
+                    // strategic sourcing/procurement function — the filter-audit found "Global
+                    // Supply Management Intern" (Zipline) being dropped for lack of this keyword.
+                    "supply management",
                     "logistics",
                     "procurement",
                     "sourcing",
@@ -180,7 +183,8 @@ final class FilterKeywords {
                     "supply chain operations",
                     "warehouse operations",
                     // master/production scheduling — core SCM planning the audit found was being
-                    // dropped. Kept specific so it catches "Master Scheduler"/"Production Scheduler"/
+                    // dropped. Kept specific so it catches "Master Scheduler"/"Production
+                    // Scheduler"/
                     // "Production Control" but NOT healthcare/project schedulers (surgery, imaging,
                     // project scheduler), which correctly stay non-SCM.
                     "master schedul",
