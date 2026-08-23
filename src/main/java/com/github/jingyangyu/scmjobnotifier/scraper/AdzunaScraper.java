@@ -176,7 +176,8 @@ public class AdzunaScraper implements JobScraper {
                         "tiktok",
                         "douyin",
                         "google",
-                        "lamresearch")) {
+                        "lamresearch",
+                        "paloaltonetworks")) {
             addToken(tokens, s);
         }
         // display-name aliases for cryptic slugs
