@@ -188,10 +188,19 @@ Added (all validated via test poll unless noted):
 Excluded google/lamresearch from the Adzuna long-tail (bytedance/tiktok/douyin already; supermicro
 auto-excludes via its SF company name).
 
-**Deferred (need work):** Albertsons/Safeway (Oracle CE `eofd`/us6/`CX_1001` verified, but our Oracle
-scraper fetches the whole board — needs keyword-filtering added for grocery volume); Ross Stores
-(`jobs.rossstores.com/Search/SearchResults` JSON works but is session/anti-bot gated — needs a
-cookie bootstrap); Palo Alto Networks (Phenom **SSR** — no jobs XHR, only 18 SCM results, thin).
+Second wave (added after enhancing/reverse-engineering):
+
+| Employer | ATS / how | Live CA-SCM |
+|---|---|---|
+| **Albertsons/Safeway** | Oracle CE `eofd`/us6/`CX_1001` — added a **keyword-filtered** Oracle mode (grocery board is ~7k store jobs, so fetch-all buried the SCM roles) | 1032 → **111 CA** (Pleasanton HQ, Tracy DC: Senior Buyer, Supply Chain, Replenishment) |
+| **Palo Alto Networks** | Phenom **SSR** — regex-parse the search page (`/en/search-jobs/{kw}/47263/{page}`) across SCM queries (18 for "supply chain" alone was misleading; broader queries → 71) | 71 → **28 CA** (Santa Clara: Demand Planning Mgr, Manufacturing Eng) |
+
+**Deferred:** Ross Stores — `jobs.rossstores.com/Search/SearchResults` JSON is reachable (session
+bootstrap), but its search is **fuzzy/relevance-based**: common SCM words OR-match most of the ~7k
+store-job board (`logistics`→7074, `distribution`→7085), so there's no clean keyword filter to
+scrape against. eBay (public jobs on Phenom, Workday tenant internal), Roku/Block/Arista/PayPal/Visa
+(checked — thin SCM despite size), Lam-via-Eightfold-SmartApply and Juniper/Coherter/Seagate
+(unsupported/no clean surface).
 
 ### Takeaway
 The migratable pool is **nearly exhausted**. Of ~230 distinct un-migrated employers: ~48 are
