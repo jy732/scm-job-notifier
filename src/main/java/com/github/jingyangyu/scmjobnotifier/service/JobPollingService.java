@@ -27,7 +27,7 @@ import org.springframework.stereotype.Service;
 /**
  * Scheduled polling orchestrator that runs every 15 minutes ({@code job.poll.cron}).
  *
- * <p>Companies within each platform are scraped in parallel (8-thread pool) with a per-company
+ * <p>Companies within each platform are scraped in parallel (12-thread pool) with a per-company
  * timeout. Each company runs scrape → pre-filter → dedup → fetch descriptions → classify → persist.
  */
 @Slf4j
@@ -46,7 +46,7 @@ public class JobPollingService {
     private final JobClassifier classifier;
     private final JobTitleFilter titleFilter;
     private final PipelineMetrics metrics;
-    private final ExecutorService scrapePool = Executors.newFixedThreadPool(8);
+    private final ExecutorService scrapePool = Executors.newFixedThreadPool(12);
 
     public JobPollingService(
             List<JobScraper> scrapers,

@@ -180,7 +180,9 @@ public class AdzunaScraper implements JobScraper {
                         "paloaltonetworks",
                         "rossstores",
                         "rossdressforless",
-                        "qualcomm")) {
+                        "qualcomm",
+                        "amd",
+                        "rivian")) {
             addToken(tokens, s);
         }
         // display-name aliases for cryptic slugs
