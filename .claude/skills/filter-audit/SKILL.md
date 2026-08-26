@@ -22,10 +22,19 @@ Audits every spec of the classification funnel for **both** error directions:
 
 2. **Trigger the audit** — scrapes every company and writes `filter-audit.csv` (one row per job:
    `platform, company, disposition, excludeReason, fresh, california, scmRelevant, autoLevel,
-   location, title`). Sequential scrape → **~15 min**:
+   location, title`). Full sweep is sequential → **~15 min**:
    ```
    curl -s -m 900 -X POST http://localhost:8081/api/test/filter-audit > filter-audit-result.json
    ```
+   **Scope it** to audit just a few companies in seconds (e.g. after adding scrapers) with optional
+   `?platform=` and `?company=` (both case-insensitive):
+   ```
+   curl -s -X POST 'http://localhost:8081/api/test/filter-audit?platform=jibe'                     # all Jibe cos
+   curl -s -X POST 'http://localhost:8081/api/test/filter-audit?platform=workday&company=appliedmaterials'
+   ```
+   The JSON response echoes `scope`, `companiesAudited` (0 ⇒ a `warning` — check spelling), and
+   `byDisposition` (incl. `PASSED` = would reach Gemini). Each call overwrites `filter-audit.csv`
+   with just the scoped rows, so copy it aside if auditing multiple scopes.
 
 3. **Analyze:**
    ```

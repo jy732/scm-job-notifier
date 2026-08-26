@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -113,11 +114,11 @@ public class ScrapeTestController {
 
     /**
      * Sends a product/phase-update announcement (mascot header + the provided HTML). Reusable — the
-     * content comes in the request body, not from code. Body:
-     * {@code {"subject":"…","html":"…","to":"…"}}. If {@code to} is omitted/blank it goes to the
-     * hardcoded test address {@value #TEST_EMAIL_TO} (safe dry-run); the {@code phase-update} skill
-     * drafts the HTML, gets the user's review, then re-sends with the real recipient only on OK.
-     * {@code POST /api/test/announcement}.
+     * content comes in the request body, not from code. Body: {@code
+     * {"subject":"…","html":"…","to":"…"}}. If {@code to} is omitted/blank it goes to the hardcoded
+     * test address {@value #TEST_EMAIL_TO} (safe dry-run); the {@code phase-update} skill drafts
+     * the HTML, gets the user's review, then re-sends with the real recipient only on OK. {@code
+     * POST /api/test/announcement}.
      */
     @PostMapping("/announcement")
     public Mono<Map<String, Object>> sendAnnouncement(@RequestBody Map<String, String> body) {
@@ -215,9 +216,10 @@ public class ScrapeTestController {
     /**
      * Location-parsing audit: scrapes every configured company and writes one CSV row per job
      * (platform, company, caDetected, location, title) to {@code ./location-audit.csv}, plus a
-     * per-company summary and a flag list. Surfaces tenants whose location parsing silently breaks —
-     * e.g. many jobs scraped but all locations blank, or lots of jobs yet zero California detected
-     * (the Snap-on / Workday-multi-location signatures). {@code POST /api/test/location-audit}.
+     * per-company summary and a flag list. Surfaces tenants whose location parsing silently breaks
+     * — e.g. many jobs scraped but all locations blank, or lots of jobs yet zero California
+     * detected (the Snap-on / Workday-multi-location signatures). {@code POST
+     * /api/test/location-audit}.
      */
     @PostMapping("/location-audit")
     public Mono<Map<String, Object>> locationAudit() {
@@ -227,7 +229,8 @@ public class ScrapeTestController {
     private Map<String, Object> doLocationAudit() {
         log.info("Location audit triggered");
         Path csv = Path.of("location-audit.csv");
-        Map<String, int[]> agg = new TreeMap<>(); // "platform/company" -> [jobs, blankLoc, caDetected]
+        Map<String, int[]> agg =
+                new TreeMap<>(); // "platform/company" -> [jobs, blankLoc, caDetected]
         int totalJobs = 0;
         try (BufferedWriter w = Files.newBufferedWriter(csv, StandardCharsets.UTF_8)) {
             w.write("platform,company,caDetected,location,title");
@@ -239,7 +242,11 @@ public class ScrapeTestController {
                     try {
                         jobs = scraper.scrape(company);
                     } catch (Exception e) {
-                        log.warn("audit: scrape failed {}/{}: {}", platform, company, e.getMessage());
+                        log.warn(
+                                "audit: scrape failed {}/{}: {}",
+                                platform,
+                                company,
+                                e.getMessage());
                         continue;
                     }
                     int[] a = agg.computeIfAbsent(platform + "/" + company, k -> new int[3]);
@@ -305,22 +312,34 @@ public class ScrapeTestController {
 
     /**
      * End-to-end pre-filter audit: scrapes every company and records, per job, the outcome at each
-     * pipeline stage (freshness, exclude tier, California, SCM-relevance, auto-level) plus the final
-     * {@code disposition} — which stage dropped it, or {@code PASSED} (would reach Gemini/email).
-     * Writes {@code filter-audit.csv} and returns per-disposition counts. Deterministic (no Gemini
-     * calls); the Gemini stage is audited separately from its persisted decisions in H2. {@code POST
-     * /api/test/filter-audit}.
+     * pipeline stage (freshness, exclude tier, California, SCM-relevance, auto-level) plus the
+     * final {@code disposition} — which stage dropped it, or {@code PASSED} (would reach
+     * Gemini/email). Writes {@code filter-audit.csv} and returns per-disposition counts.
+     * Deterministic (no Gemini calls); the Gemini stage is audited separately from its persisted
+     * decisions in H2. {@code POST /api/test/filter-audit}.
+     *
+     * <p>Optional scoping (case-insensitive): {@code ?platform=jibe} audits a single platform's
+     * scrapers; {@code ?platform=workday&company=appliedmaterials} narrows to one company. Omit
+     * both to audit everything (the slow ~15-min full sweep). Scoping is what makes it practical to
+     * verify a few new adds in seconds instead of re-running the whole roster.
      */
     @PostMapping("/filter-audit")
-    public Mono<Map<String, Object>> filterAudit() {
-        return Mono.fromCallable(this::doFilterAudit).subscribeOn(Schedulers.boundedElastic());
+    public Mono<Map<String, Object>> filterAudit(
+            @RequestParam(required = false) String platform,
+            @RequestParam(required = false) String company) {
+        return Mono.fromCallable(() -> doFilterAudit(platform, company))
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
-    private Map<String, Object> doFilterAudit() {
-        log.info("Filter audit triggered");
+    private Map<String, Object> doFilterAudit(String platformFilter, String companyFilter) {
+        log.info(
+                "Filter audit triggered (platform={}, company={})",
+                platformFilter == null ? "*" : platformFilter,
+                companyFilter == null ? "*" : companyFilter);
         Path csv = Path.of("filter-audit.csv");
         Map<String, Integer> byDisposition = new TreeMap<>();
         int total = 0;
+        int scrapedCompanies = 0;
         try (BufferedWriter w = Files.newBufferedWriter(csv, StandardCharsets.UTF_8)) {
             w.write(
                     "platform,company,disposition,excludeReason,fresh,california,scmRelevant,"
@@ -328,7 +347,14 @@ public class ScrapeTestController {
             w.newLine();
             for (JobScraper scraper : scrapers) {
                 String platform = scraper.platform();
+                if (platformFilter != null && !platform.equalsIgnoreCase(platformFilter)) {
+                    continue;
+                }
                 for (String company : scraper.companies()) {
+                    if (companyFilter != null && !company.equalsIgnoreCase(companyFilter)) {
+                        continue;
+                    }
+                    scrapedCompanies++;
                     List<JobPosting> jobs;
                     try {
                         jobs = scraper.scrape(company);
@@ -393,10 +419,26 @@ public class ScrapeTestController {
             return Map.of("error", e.getMessage());
         }
         Map<String, Object> out = new LinkedHashMap<>();
+        out.put("scope", scopeLabel(platformFilter, companyFilter));
+        out.put("companiesAudited", scrapedCompanies);
         out.put("csv", csv.toAbsolutePath().toString());
         out.put("totalJobs", total);
         out.put("byDisposition", byDisposition);
+        if (scrapedCompanies == 0) {
+            out.put(
+                    "warning",
+                    "no scraper/company matched the scope — check platform/company spelling");
+        }
         return out;
+    }
+
+    private static String scopeLabel(String platformFilter, String companyFilter) {
+        if (platformFilter == null && companyFilter == null) {
+            return "ALL";
+        }
+        return (platformFilter == null ? "*" : platformFilter)
+                + "/"
+                + (companyFilter == null ? "*" : companyFilter);
     }
 
     /**
