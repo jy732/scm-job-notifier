@@ -26,21 +26,26 @@ Audits every spec of the classification funnel for **both** error directions:
    ```
    curl -s -m 900 -X POST http://localhost:8081/api/test/filter-audit > filter-audit-result.json
    ```
-   **Scope it** to audit just a few companies in seconds (e.g. after adding scrapers) with optional
-   `?platform=` and `?company=` (both case-insensitive):
+   **Scope it** to audit an arbitrary set of companies in seconds (e.g. after adding scrapers).
+   Both `?platform=` and `?company=` are case-insensitive and accept a **comma-separated list**;
+   pass whatever companies you want to audit — not just the newest adds:
    ```
-   curl -s -X POST 'http://localhost:8081/api/test/filter-audit?platform=jibe'                     # all Jibe cos
-   curl -s -X POST 'http://localhost:8081/api/test/filter-audit?platform=workday&company=appliedmaterials'
+   curl -s -X POST 'http://localhost:8081/api/test/filter-audit?platform=jibe'                       # whole platform(s)
+   curl -s -X POST 'http://localhost:8081/api/test/filter-audit?company=amd,rivian,appliedmaterials' # any cos, any platform
+   curl -s -X POST 'http://localhost:8081/api/test/filter-audit?platform=workday&company=intel,nxp'   # intersect
    ```
-   The JSON response echoes `scope`, `companiesAudited` (0 ⇒ a `warning` — check spelling), and
-   `byDisposition` (incl. `PASSED` = would reach Gemini). Each call overwrites `filter-audit.csv`
-   with just the scoped rows, so copy it aside if auditing multiple scopes.
+   The JSON response echoes `scope`, `companiesAudited`, `byDisposition` (incl. `PASSED` = would
+   reach Gemini), and `unmatchedCompanies` (requested names that hit no scraper — a typo). Each call
+   overwrites `filter-audit.csv` with just the scoped rows — pass the file directly to the analyzer;
+   no need to copy it aside since one scoped call already contains the whole set you asked for.
 
 3. **Analyze:**
    ```
-   python3 scripts/analyze-filter-audit.py
+   python3 scripts/analyze-filter-audit.py [path/to/filter-audit.csv]
    ```
-   It prints the disposition distribution and 5 checks:
+   It prints the disposition distribution, a **per-company funnel table** (one row per company with
+   the count at each stage in pipeline order — `tot → stale → lead → senr → tech → role → nonCA →
+   nonSCM → PASS`; stages sum to `tot`, sorted by `PASS` desc), then 5 checks:
    1. **Leakage** — `PASSED` jobs that look non-SCM/labor/senior. *SCM engineering roles (SQE,
       Supplier Development Engineer, Sourcing/Supply Chain Engineer) are legit — kept on purpose.*
    2. **Location miss** — `DROPPED_NON_CA` with a `, CA`/`California` token → **should be ~0**;

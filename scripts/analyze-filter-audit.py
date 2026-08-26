@@ -22,6 +22,44 @@ print("=== DISPOSITION (where each job dropped, or PASSED) ===")
 for d, c in disp.most_common():
     print(f"  {d:28} {c}")
 
+# PER-COMPANY FUNNEL — one row per company, count at each pipeline stage in pipeline order.
+# tot → stale → lead → seniority → tech(non-SCM engineer/scientist) → role(labor) → nonCA →
+# nonSCM → PASS. Columns sum to tot. Sorted by PASSED desc then total desc.
+STAGES = [
+    ("stale", "DROPPED_STALE"),
+    ("lead", "DROPPED_LEAD"),
+    ("senr", "DROPPED_SENIORITY"),
+    ("tech", "DROPPED_NON_SCM_TECHNICAL"),
+    ("role", "DROPPED_NON_SCM_ROLE"),
+    ("nonCA", "DROPPED_NON_CA"),
+    ("nonSCM", "DROPPED_NON_SCM"),
+    ("PASS", "PASSED"),
+]
+by_co = collections.defaultdict(collections.Counter)
+for x in rows:
+    by_co[x["company"]][x["disposition"]] += 1
+print("\n=== PER-COMPANY FUNNEL (stages sum to tot) ===")
+hdr = f"{'company':22}{'tot':>6}" + "".join(f"{lbl:>7}" for lbl, _ in STAGES)
+print(hdr)
+print("  " + "-" * (len(hdr) - 2))
+
+
+def _funnel_row(name, counter):
+    tot = sum(counter.values())
+    cells = "".join(f"{counter.get(d, 0):>7}" for _, d in STAGES)
+    return f"{name[:22]:22}{tot:>6}{cells}", tot, counter.get("PASSED", 0)
+
+
+ordered = sorted(
+    by_co.items(), key=lambda kv: (-kv[1].get("PASSED", 0), -sum(kv[1].values()))
+)
+for name, counter in ordered:
+    line, _, _ = _funnel_row(name, counter)
+    print(line)
+totline, _, _ = _funnel_row("TOTAL", disp)
+print("  " + "-" * (len(hdr) - 2))
+print(totline)
+
 # 1) LEAKAGE — PASSED jobs that look non-SCM / labor / senior. NOTE: SCM engineering roles
 #    (Supplier Quality/Development Engineer, Sourcing/Supply Chain Engineer) are LEGIT — kept on
 #    purpose via the SCM-anchor guard — so treat "…Engineer" hits as expected, not leakage.

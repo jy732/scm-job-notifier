@@ -11,11 +11,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -318,10 +321,12 @@ public class ScrapeTestController {
      * Deterministic (no Gemini calls); the Gemini stage is audited separately from its persisted
      * decisions in H2. {@code POST /api/test/filter-audit}.
      *
-     * <p>Optional scoping (case-insensitive): {@code ?platform=jibe} audits a single platform's
-     * scrapers; {@code ?platform=workday&company=appliedmaterials} narrows to one company. Omit
-     * both to audit everything (the slow ~15-min full sweep). Scoping is what makes it practical to
-     * verify a few new adds in seconds instead of re-running the whole roster.
+     * <p>Optional scoping (case-insensitive; both accept a comma-separated list): {@code
+     * ?platform=jibe,workday} audits those platforms' scrapers; {@code
+     * ?company=amd,rivian,appliedmaterials} audits exactly those companies across any platform;
+     * combine them to intersect. Omit both to audit everything (the slow ~15-min full sweep).
+     * Scoping to a company list is what makes it practical to audit an arbitrary set in seconds
+     * instead of re-running the whole roster.
      */
     @PostMapping("/filter-audit")
     public Mono<Map<String, Object>> filterAudit(
@@ -331,15 +336,35 @@ public class ScrapeTestController {
                 .subscribeOn(Schedulers.boundedElastic());
     }
 
+    /**
+     * Splits a comma-separated param into a lowercased set; null/blank ⇒ empty set (matches all).
+     */
+    private static Set<String> parseCsvSet(String csv) {
+        if (csv == null || csv.isBlank()) {
+            return Set.of();
+        }
+        Set<String> out = new HashSet<>();
+        for (String s : csv.split(",")) {
+            String t = s.strip().toLowerCase(Locale.ROOT);
+            if (!t.isEmpty()) {
+                out.add(t);
+            }
+        }
+        return out;
+    }
+
     private Map<String, Object> doFilterAudit(String platformFilter, String companyFilter) {
+        Set<String> platforms = parseCsvSet(platformFilter);
+        Set<String> companies = parseCsvSet(companyFilter);
         log.info(
-                "Filter audit triggered (platform={}, company={})",
-                platformFilter == null ? "*" : platformFilter,
-                companyFilter == null ? "*" : companyFilter);
+                "Filter audit triggered (platforms={}, companies={})",
+                platforms.isEmpty() ? "*" : platforms,
+                companies.isEmpty() ? "*" : companies);
         Path csv = Path.of("filter-audit.csv");
         Map<String, Integer> byDisposition = new TreeMap<>();
         int total = 0;
         int scrapedCompanies = 0;
+        Set<String> matchedCompanies = new HashSet<>(companies);
         try (BufferedWriter w = Files.newBufferedWriter(csv, StandardCharsets.UTF_8)) {
             w.write(
                     "platform,company,disposition,excludeReason,fresh,california,scmRelevant,"
@@ -347,13 +372,16 @@ public class ScrapeTestController {
             w.newLine();
             for (JobScraper scraper : scrapers) {
                 String platform = scraper.platform();
-                if (platformFilter != null && !platform.equalsIgnoreCase(platformFilter)) {
+                if (!platforms.isEmpty()
+                        && !platforms.contains(platform.toLowerCase(Locale.ROOT))) {
                     continue;
                 }
                 for (String company : scraper.companies()) {
-                    if (companyFilter != null && !company.equalsIgnoreCase(companyFilter)) {
+                    if (!companies.isEmpty()
+                            && !companies.contains(company.toLowerCase(Locale.ROOT))) {
                         continue;
                     }
+                    matchedCompanies.remove(company.toLowerCase(Locale.ROOT));
                     scrapedCompanies++;
                     List<JobPosting> jobs;
                     try {
@@ -419,11 +447,15 @@ public class ScrapeTestController {
             return Map.of("error", e.getMessage());
         }
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("scope", scopeLabel(platformFilter, companyFilter));
+        out.put("scope", scopeLabel(platforms, companies));
         out.put("companiesAudited", scrapedCompanies);
         out.put("csv", csv.toAbsolutePath().toString());
         out.put("totalJobs", total);
         out.put("byDisposition", byDisposition);
+        // requested company names that matched no scraper — almost always a typo
+        if (!matchedCompanies.isEmpty()) {
+            out.put("unmatchedCompanies", new TreeSet<>(matchedCompanies));
+        }
         if (scrapedCompanies == 0) {
             out.put(
                     "warning",
@@ -432,13 +464,13 @@ public class ScrapeTestController {
         return out;
     }
 
-    private static String scopeLabel(String platformFilter, String companyFilter) {
-        if (platformFilter == null && companyFilter == null) {
+    private static String scopeLabel(Set<String> platforms, Set<String> companies) {
+        if (platforms.isEmpty() && companies.isEmpty()) {
             return "ALL";
         }
-        return (platformFilter == null ? "*" : platformFilter)
+        return (platforms.isEmpty() ? "*" : new TreeSet<>(platforms))
                 + "/"
-                + (companyFilter == null ? "*" : companyFilter);
+                + (companies.isEmpty() ? "*" : new TreeSet<>(companies));
     }
 
     /**
