@@ -62,6 +62,18 @@ class WorkdayScraperTest {
                     + "\"locationsText\":\"Multiple Locations\",\"postedOn\":\"Posted Today\"}]}";
 
     @Test
+    void locationFallsBackToExternalPath() {
+        String body =
+                "{\"total\":1,\"facets\":[],\"jobPostings\":[{\"title\":\"Buyer\","
+                        + "\"externalPath\":\"/job/San-Jose-CA/Buyer_R1\",\"locationsText\":\"\","
+                        + "\"postedOn\":\"Posted Today\"}]}";
+        WorkdayScraper s = new WorkdayScraper(WebClientStubs.json(u -> body), props());
+        List<JobPosting> jobs = s.scrape("iherb");
+        assertThat(jobs).hasSize(1);
+        assertThat(jobs.get(0).getLocation()).isEqualTo("San Jose CA");
+    }
+
+    @Test
     void tagsMultiLocationCaViaFacet() {
         WorkdayScraper s = new WorkdayScraper(WebClientStubs.json(u -> FACET_BODY), props());
         List<JobPosting> jobs = s.scrape("iherb");
