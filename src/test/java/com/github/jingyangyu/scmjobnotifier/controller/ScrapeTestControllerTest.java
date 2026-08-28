@@ -136,6 +136,53 @@ class ScrapeTestControllerTest {
                 }
             };
 
+    private static JobPosting jp(String title, String loc, java.time.Instant posted) {
+        return JobPosting.builder()
+                .company("acme")
+                .externalId(title)
+                .title(title)
+                .location(loc)
+                .postedDate(posted)
+                .detectedAt(Instant.now())
+                .build();
+    }
+
+    @Test
+    void auditsCoverAllDispositionsAndCsvWrite() {
+        JobScraper varied =
+                new JobScraper() {
+                    @Override
+                    public String platform() {
+                        return "greenhouse";
+                    }
+
+                    @Override
+                    public List<String> companies() {
+                        return List.of("acme");
+                    }
+
+                    @Override
+                    public List<JobPosting> scrape(String company) {
+                        return List.of(
+                                jp("Supply Chain Analyst", "San Jose, CA", null), // PASSED
+                                jp("Buyer", "Austin, TX", null), // DROPPED_NON_CA
+                                jp("Software Developer", "San Jose, CA", null), // NON_SCM/technical
+                                jp("Senior Manager", "San Jose, CA", null), // seniority
+                                jp(
+                                        "Buyer",
+                                        "San Jose, CA",
+                                        Instant.now().minusSeconds(400L * 24 * 3600))); // stale
+                    }
+                };
+        ScrapeTestController c =
+                new ScrapeTestController(List.of(varied), poll, email, new JobTitleFilter(90));
+        Map<String, Object> fa = c.filterAudit(null, null).block();
+        assertThat(fa).containsKey("byDisposition");
+        assertThat(c.locationAudit().block()).isNotNull();
+        assertThat(c.scrapeAll().block()).isNotNull();
+        assertThat(c.scrapeSingle("greenhouse", "acme").block()).containsKey("sample");
+    }
+
     @Test
     void auditsSurviveScraperException() {
         ScrapeTestController c =
