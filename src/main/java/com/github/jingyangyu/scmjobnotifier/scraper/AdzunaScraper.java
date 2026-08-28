@@ -119,7 +119,8 @@ public class AdzunaScraper implements JobScraper {
             @Value("${job.companies.greenhouse:}") String greenhouse,
             @Value("${job.companies.lever:}") String lever,
             @Value("${job.companies.ashby:}") String ashby,
-            @Value("${job.companies.smartrecruiters:}") String smartrecruiters) {
+            @Value("${job.companies.smartrecruiters:}") String smartrecruiters,
+            @Value("${job.companies.bamboohr:}") String bamboohr) {
         this.webClient = webClientBuilder.build();
         this.props = props;
         this.excludeTokens =
@@ -133,7 +134,8 @@ public class AdzunaScraper implements JobScraper {
                         greenhouse,
                         lever,
                         ashby,
-                        smartrecruiters);
+                        smartrecruiters,
+                        bamboohr);
         log.info(
                 "Adzuna scraper initialized (configured={}, {} exclude tokens, throttle={}m)",
                 props.isConfigured(),
@@ -151,7 +153,8 @@ public class AdzunaScraper implements JobScraper {
             String greenhouse,
             String lever,
             String ashby,
-            String smartrecruiters) {
+            String smartrecruiters,
+            String bamboohr) {
         Set<String> tokens = new HashSet<>();
         workday.getCompanies().forEach(c -> addToken(tokens, c.getName()));
         oracle.getCompanies().forEach(c -> addToken(tokens, c.getName()));
@@ -159,7 +162,7 @@ public class AdzunaScraper implements JobScraper {
         sf.getCompanies().forEach(c -> addToken(tokens, c.getName()));
         paylocity.getCompanies().forEach(c -> addToken(tokens, c.getName()));
         brassring.getCompanies().forEach(c -> addToken(tokens, c.getName()));
-        for (String csv : List.of(greenhouse, lever, ashby, smartrecruiters)) {
+        for (String csv : List.of(greenhouse, lever, ashby, smartrecruiters, bamboohr)) {
             for (String slug : csv.split(",")) {
                 addToken(tokens, slug);
             }
