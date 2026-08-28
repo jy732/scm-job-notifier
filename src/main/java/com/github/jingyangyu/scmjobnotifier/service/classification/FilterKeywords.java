@@ -44,6 +44,20 @@ final class FilterKeywords {
     // a strong ENTRY_LEVEL signal. \b after "lead" fails on "leadership" (followed by 'e').
     static final Pattern EXCLUDE_LEAD_PATTERN = Pattern.compile("(?i)\\blead\\b");
 
+    // ── Tier 1d: hourly SHIFT-labor exclude ──
+    // A shift designation in the title ("2nd Shift", "Night Shift", "Weekend Shift", "PM Shift",
+    // "Shift Differential") is a near-perfect tell for hourly warehouse/DC/production labor. These
+    // leak past the labor-keyword list because their nouns (Warehouse/Inventory/Logistics/Materials
+    // Coordinator, Inventory Specialist) are NOT in NON_SCM_ROLE_KEYWORDS, and "coordinator" then
+    // auto-classifies them ENTRY. Professional entry SCM roles (Analyst/Planner/Buyer) never carry
+    // a
+    // shift in the title, so this is high-precision. Requires a shift QUALIFIER (not bare "shift").
+    static final Pattern EXCLUDE_SHIFT_PATTERN =
+            Pattern.compile(
+                    "(?i)\\b(1st|2nd|3rd|4th|first|second|third|fourth|day|night|evening|weekend"
+                            + "|swing|graveyard|overnight|morning|multiple|am|pm)\\s+shift(s)?\\b"
+                            + "|\\bshift\\s+differential\\b");
+
     // ── Tier 1c: hourly-labor / non-SCM-role exclude ──
     // Titles that pass the SCM keyword gate but aren't the professional/analytical SCM roles we
     // target. Two groups: (1) hourly warehouse/distribution labor + clerical (matched "warehouse"/

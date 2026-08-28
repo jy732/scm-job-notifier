@@ -109,3 +109,14 @@ sfp = [x for x in rows if x["disposition"] == "DROPPED_SENIORITY" and entry.sear
 print(f"\n=== 5) SENIORITY FALSE-DROP? — {len(sfp)} seniority-excluded with an entry marker ===")
 for t, c in collections.Counter(x["title"] for x in sfp).most_common(15):
     print(f"  {c:3}  {t[:60]}")
+
+# 6) SHIFT-LABOR LEAKAGE — PASSED titles carrying a shift designation (2nd/night/weekend/PM shift,
+#    shift differential) are hourly warehouse/DC labor and should be excluded, not emailed. Want 0.
+shift = re.compile(
+    r"(?i)\b(1st|2nd|3rd|4th|first|second|third|fourth|day|night|evening|weekend|swing|graveyard|"
+    r"overnight|morning|multiple|am|pm)\s+shift(s)?\b|\bshift\s+differential\b"
+)
+leaky_shift = [x for x in passed if shift.search(x["title"])]
+print(f"\n=== 6) SHIFT-LABOR LEAKAGE — {len(leaky_shift)} PASSED look like hourly shift labor (want 0) ===")
+for x in leaky_shift[:30]:
+    print(f"  ! {x['company']} | {x['title']} @ {x['location']}")

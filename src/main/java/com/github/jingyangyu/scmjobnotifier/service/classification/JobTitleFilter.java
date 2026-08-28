@@ -60,10 +60,10 @@ public class JobTitleFilter {
     }
 
     /**
-     * Which exclude tier (if any) fires for this title, or {@code null} if it passes. Exposed for the
-     * filter audit so it can attribute drops; {@link #shouldExclude} is just {@code != null}.
+     * Which exclude tier (if any) fires for this title, or {@code null} if it passes. Exposed for
+     * the filter audit so it can attribute drops; {@link #shouldExclude} is just {@code != null}.
      *
-     * @return "seniority", "lead", "non-scm-role", "non-scm-technical", or null
+     * @return "seniority", "lead", "shift-labor", "non-scm-role", "non-scm-technical", or null
      */
     public String excludeReason(JobPosting job) {
         String title = job.getTitle().toLowerCase(Locale.ROOT);
@@ -72,6 +72,11 @@ public class JobTitleFilter {
         }
         if (FilterKeywords.EXCLUDE_LEAD_PATTERN.matcher(title).find()) {
             return "lead";
+        }
+        // Hourly shift-labor: a shift designation ("2nd Shift"/"Night Shift"/"Shift Differential")
+        // marks a warehouse/DC/production hourly role that slips past NON_SCM_ROLE_KEYWORDS.
+        if (FilterKeywords.EXCLUDE_SHIFT_PATTERN.matcher(title).find()) {
+            return "shift-labor";
         }
         // Hourly warehouse/clerical labor + materials-science/facilities roles that pass the SCM
         // keyword gate but aren't the professional SCM roles we target.
