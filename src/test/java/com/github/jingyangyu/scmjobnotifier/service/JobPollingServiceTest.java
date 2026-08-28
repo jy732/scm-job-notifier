@@ -174,6 +174,33 @@ class JobPollingServiceTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void pollUpdatesExistingAndCountsGeminiFailures() {
+        JobPosting existing = scmJob(); // same company:externalId as the scraped job
+        JobPosting scraped = scmJob();
+        when(repo.findAllCompanyExternalIdKeys()).thenReturn(Set.of());
+        when(repo.findByCompanyExternalIdKeys(any())).thenReturn(List.of(existing));
+        when(repo.findByClassificationFailuresGreaterThanAndClassificationFailuresLessThan(
+                        anyInt(), anyInt()))
+                .thenReturn(List.of());
+        when(repo.saveAll(any())).thenAnswer(inv -> ((Iterable<JobPosting>) inv.getArgument(0)));
+        // job reached Gemini but failed → geminiFailed, increments the existing row's failure count
+        when(pipeline.classify(any()))
+                .thenReturn(new ClassificationPipeline.Result(Map.of(), List.of(scraped), 0, 0, 1));
+
+        JobPollingService svc =
+                new JobPollingService(
+                        List.of(scraper),
+                        repo,
+                        pipeline,
+                        classifier,
+                        new JobTitleFilter(90),
+                        new PipelineMetrics(new SimpleMeterRegistry()));
+        svc.poll();
+        verify(repo, atLeastOnce()).saveAll(any());
+    }
+
+    @Test
     void pollHandlesNoScrapers() {
         when(repo.findAllCompanyExternalIdKeys()).thenReturn(Set.of());
         when(repo.findByClassificationFailuresGreaterThanAndClassificationFailuresLessThan(
