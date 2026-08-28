@@ -57,17 +57,25 @@ Audits every spec of the classification funnel for **both** error directions:
 
 ## Part B — Gemini audit (from real classifications in H2, no re-classification cost)
 
-Stop the app (releases the H2 lock), then query the persisted `title → level` decisions:
-```
-H2=$(find ~/.m2 -name 'h2-*.jar' | grep -v sources | head -1)
-Q() { java -cp "$H2" org.h2.tools.Shell -url "jdbc:h2:file:$(pwd)/data/jobs" -user sa -sql "$1"; }
-```
-- **Over-drop** (Gemini rejected good entry SCM): `OTHER`-level rows whose title looks entry-SCM
-  (analyst/planner/buyer/coordinator/specialist/procurement, no senior marker). Expect mostly
-  level-numbered (Analyst IV, Planner 3 = correctly senior) and HR false-positives (Talent Sourcing
-  Specialist, Recruiter = correctly OTHER). Investigate bare titles that shouldn't be OTHER.
-- **Leakage** (Gemini passed bad ones): notifiable rows (`ENTRY_LEVEL/INTERNSHIP/UNSURE`) that are
-  actually senior/labor/non-SCM.
+Mines Gemini's already-persisted `title → level` decisions — the direction that catches leaks/drops
+that happen *at classification* (e.g. a title that passes the pre-filter but Gemini mis-levels).
+No app-stop needed: `AUTO_SERVER=TRUE` allows a concurrent read-only connection while the app runs.
+
+1. **Export the decisions to CSV** (H2 shell, read-only):
+   ```
+   H2=$(find ~/.m2 -name 'h2-*.jar' | grep -v sources | head -1)
+   java -cp "$H2" org.h2.tools.Shell -url "jdbc:h2:file:$(pwd)/data/jobs;AUTO_SERVER=TRUE;IFEXISTS=TRUE" \
+     -user sa -password "" -sql \
+     "CALL CSVWRITE('$(pwd)/gemini-audit.csv', 'SELECT title, company, location, level, notified, source FROM job_posting');"
+   ```
+2. **Analyze:** `python3 scripts/analyze-gemini-audit.py` — prints level counts + two checks:
+   - **OVER-DROP** (false-negatives): `OTHER`-level titles that look entry-SCM, minus the correct-
+     OTHER noise (level-numbered II/III/IV, HR "talent sourcing", medical "procurement surgeon",
+     engineering/driver/consultant tracks). The remainder is heuristic — **check the description's
+     YOE before acting** (bare "Specialist/Planner/Analyst" are often legitimately mid-level; e.g. a
+     "Procurement Specialist" requiring 8 yrs is correctly OTHER).
+   - **LEAKAGE** (false-positives): emailed (`notified=TRUE`) titles that look senior/hourly-labor/
+     shift and shouldn't have shipped (breaks out the shift-labor subset).
 
 ## Interpreting / acting
 - Location-miss > 0 → a scraper location bug ([[scraper-silent-location-drops]]).
