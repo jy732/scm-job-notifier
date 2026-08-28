@@ -85,6 +85,15 @@ class EmailNotifierTest {
     }
 
     @Test
+    void sendFailureAfterRetriesReturnsFalse() {
+        org.mockito.Mockito.doThrow(new org.springframework.mail.MailSendException("smtp down"))
+                .when(sender)
+                .send(any(MimeMessage.class));
+        // retries (2s,4s backoff) then gives up -> false
+        assertThat(notifier.sendNewJobAlert(List.of(job()))).isFalse();
+    }
+
+    @Test
     void richAlertExercisesDirectAndAdzunaSections() {
         // direct (source null) + Adzuna-sourced + internship — hits the grouped-section branches
         List<JobPosting> jobs =

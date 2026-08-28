@@ -201,6 +201,41 @@ class JobPollingServiceTest {
     }
 
     @Test
+    void pollSurvivesScraperException() {
+        when(repo.findAllCompanyExternalIdKeys()).thenReturn(Set.of());
+        when(repo.findByClassificationFailuresGreaterThanAndClassificationFailuresLessThan(
+                        anyInt(), anyInt()))
+                .thenReturn(List.of());
+        JobScraper boom =
+                new JobScraper() {
+                    @Override
+                    public String platform() {
+                        return "boom";
+                    }
+
+                    @Override
+                    public List<String> companies() {
+                        return List.of("c");
+                    }
+
+                    @Override
+                    public List<JobPosting> scrape(String company) {
+                        throw new RuntimeException("scrape blew up");
+                    }
+                };
+        JobPollingService svc =
+                new JobPollingService(
+                        List.of(boom),
+                        repo,
+                        pipeline,
+                        classifier,
+                        new JobTitleFilter(90),
+                        new PipelineMetrics(new SimpleMeterRegistry()));
+        svc.poll(); // per-company failure is swallowed
+        assertThat(svc).isNotNull();
+    }
+
+    @Test
     void pollHandlesNoScrapers() {
         when(repo.findAllCompanyExternalIdKeys()).thenReturn(Set.of());
         when(repo.findByClassificationFailuresGreaterThanAndClassificationFailuresLessThan(
