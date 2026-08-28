@@ -9,6 +9,15 @@ Audits every spec of the classification funnel for **both** error directions:
 - **Leakage** — bad jobs (non-SCM / labor / senior / non-CA) reaching email.
 - **Over-filtering** — good entry-CA-SCM jobs silently dropped (the location-parse / keyword-gap bug class — see [[scraper-silent-location-drops]]).
 
+**One-shot runner:** `scripts/full-audit.sh` does Part A + Part B end-to-end (build → suppressed
+in-mem instance → scrape → both analyzers → cleanup). Ad-hoc only, not scheduled. Default is LITE
+(all HTTP/JSON scrapers + Adzuna; skips Playwright apple/google, Bright-Data tesla, TLS-fragile meta,
+disabled brassring); `--all` includes them; `platform=…`/`company=…` scopes it; `--part=a|b` runs
+one half. The manual steps below are the same thing broken out — read them to understand/extend it.
+NOT 100% coverage: the checks are regex heuristics for KNOWN error classes (a new class is invisible
+until encoded), pre-filter drops aren't persisted (only catchable in a live Part A run), and Part B
+over-drop is title-heuristic (needs YOE review), not a re-classification.
+
 ## Part A — pre-filter audit (deterministic, no Gemini cost)
 
 1. **Get the app running with email suppressed.** If it isn't already up, start a suppressed
