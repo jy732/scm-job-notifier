@@ -54,4 +54,17 @@ class RossStoresScraperTest {
         RossStoresScraper s = new RossStoresScraper(WebClientStubs.erroring(), new ObjectMapper());
         assertThat(s.scrape("rossstores")).isEmpty();
     }
+
+    @Test
+    void filtersOutStaleRecords() {
+        String stale =
+                "{\"Records\":[{\"ID\":\"r9\",\"Title\":\"Buyer\",\"ReferenceNumber\":\"REF9\","
+                        + "\"PostedDate\":\"1/1/2000\",\"CityStateData\":\"San Jose, CA\"}]}";
+        RossStoresScraper s =
+                new RossStoresScraper(
+                        WebClientStubs.text(
+                                u -> u.contains("SearchResults") ? stale : "", "application/json"),
+                        new ObjectMapper());
+        assertThat(s.scrape("rossstores")).isEmpty(); // posted years ago -> dropped
+    }
 }

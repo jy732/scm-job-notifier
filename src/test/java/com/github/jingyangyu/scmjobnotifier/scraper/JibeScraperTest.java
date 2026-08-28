@@ -48,4 +48,22 @@ class JibeScraperTest {
     void emptyPageStopsPagination() {
         assertThat(scraper("{\"jobs\":[]}").scrape("amd")).isEmpty();
     }
+
+    @Test
+    void fallsBackToCareersHomeUrlAndNullDate() {
+        // no apply_url and an unparseable posted_date -> url fallback + null postedDate
+        String page =
+                "{\"jobs\":[{\"data\":{\"slug\":\"77\",\"title\":\"Buyer\","
+                        + "\"full_location\":\"San Jose, California\",\"posted_date\":\"bad\"}}]}";
+        List<JobPosting> jobs = scraper(page).scrape("amd");
+        assertThat(jobs).hasSize(1);
+        assertThat(jobs.get(0).getUrl()).contains("careers-home/jobs/77");
+        assertThat(jobs.get(0).getPostedDate()).isNull();
+    }
+
+    @Test
+    void emptyOnError() {
+        assertThat(new JibeScraper(WebClientStubs.erroring(), new ObjectMapper()).scrape("amd"))
+                .isEmpty();
+    }
 }
