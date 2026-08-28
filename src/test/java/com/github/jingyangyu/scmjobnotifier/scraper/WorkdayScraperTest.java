@@ -51,4 +51,21 @@ class WorkdayScraperTest {
         WorkdayScraper s = new WorkdayScraper(WebClientStubs.json(u -> BODY), props());
         assertThat(s.scrape("nope")).isEmpty();
     }
+
+    // A multi-location job whose locationsText lacks CA, but appears under the CA location facet,
+    // gets re-tagged " · California" via the facet re-fetch.
+    private static final String FACET_BODY =
+            "{\"total\":1,\"facets\":[{\"facetParameter\":\"locations\",\"values\":"
+                    + "[{\"descriptor\":\"California\",\"id\":\"ca-id\"}]}],"
+                    + "\"jobPostings\":[{\"title\":\"Buyer\","
+                    + "\"externalPath\":\"/job/Multi/Buyer_R1\","
+                    + "\"locationsText\":\"Multiple Locations\",\"postedOn\":\"Posted Today\"}]}";
+
+    @Test
+    void tagsMultiLocationCaViaFacet() {
+        WorkdayScraper s = new WorkdayScraper(WebClientStubs.json(u -> FACET_BODY), props());
+        List<JobPosting> jobs = s.scrape("iherb");
+        assertThat(jobs).hasSize(1);
+        assertThat(jobs.get(0).getLocation()).contains("California");
+    }
 }
