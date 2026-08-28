@@ -53,6 +53,12 @@ class OracleCloudScraperTest {
     }
 
     @Test
+    void emptyOnError() {
+        OracleCloudScraper s = new OracleCloudScraper(WebClientStubs.erroring(), props());
+        assertThat(s.scrape("cohu")).isEmpty();
+    }
+
+    @Test
     void keywordFilteredModeRunsQueriesAndDedupes() {
         OracleCloudCompany c = new OracleCloudCompany();
         c.setName("albertsons");

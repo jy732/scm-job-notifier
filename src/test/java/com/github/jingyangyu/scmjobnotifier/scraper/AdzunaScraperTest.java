@@ -78,6 +78,15 @@ class AdzunaScraperTest {
     }
 
     @Test
+    void secondCallIsThrottled() {
+        AdzunaProperties p = configured();
+        p.setThrottleMinutes(60);
+        AdzunaScraper s = scraper(p, u -> u.contains("/search/1") ? RESULTS : "{}");
+        s.scrape("adzuna"); // first call fetches, sets lastFetch=now
+        assertThat(s.scrape("adzuna")).isEmpty(); // within throttle window
+    }
+
+    @Test
     void excludesNoiseCompanies() {
         String twoResults =
                 "{\"results\":[{\"id\":123,\"title\":\"Supply Chain Analyst\","
