@@ -74,6 +74,20 @@ class WorkdayScraperTest {
     }
 
     @Test
+    void tagsViaLocationMetroAreaFacet() {
+        String body =
+                "{\"total\":1,\"facets\":[{\"facetParameter\":\"locationMetroArea\",\"values\":"
+                        + "[{\"descriptor\":\"California\",\"id\":\"ca-metro\"}]}],"
+                        + "\"jobPostings\":[{\"title\":\"Buyer\","
+                        + "\"externalPath\":\"/job/Multi/Buyer_R2\","
+                        + "\"locationsText\":\"Multiple\",\"postedOn\":\"Posted Today\"}]}";
+        WorkdayScraper s = new WorkdayScraper(WebClientStubs.json(u -> body), props());
+        List<JobPosting> jobs = s.scrape("iherb");
+        assertThat(jobs).hasSize(1);
+        assertThat(jobs.get(0).getLocation()).contains("California");
+    }
+
+    @Test
     void tagsMultiLocationCaViaFacet() {
         WorkdayScraper s = new WorkdayScraper(WebClientStubs.json(u -> FACET_BODY), props());
         List<JobPosting> jobs = s.scrape("iherb");
