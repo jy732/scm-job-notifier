@@ -11,11 +11,13 @@ playful casual net-speak (大保健 / 搬砖 / 又双叒叕 / 就酱 vibe, light
 reference below. Sends through the reusable announcement endpoint after the user reviews.
 
 ## 1. Gather the changes since the last update
-Look at recent history and pick the **user-facing** changes only:
+The cut-off is **self-tracked** by the `last-phase-update` git tag (moved on every send, step 4) and
+logged in `docs/phase-updates.md`. Diff from it — no need to ask the user for a range:
 ```
-git log --oneline -40
+git log --oneline last-phase-update..HEAD        # everything unannounced
 ```
-- Scope: since the last phase-update (ask the user for the range, or use a tag / the last ~N commits).
+- If the tag is missing (fresh clone), fall back to asking / the last ~N commits, and seed it:
+  `git tag -f last-phase-update <last-announced-commit>`.
 - **Keep** only what a job-seeker would notice: new companies/sources, cleaner results, fixed
   missed-jobs, email/inbox behavior, new role types.
 - **Drop** internal noise: refactors, test scaffolding, skills, docs, audits, config-only migrations
@@ -66,6 +68,15 @@ curl -s -X POST http://localhost:8081/api/test/announcement \
 - **Preview first** to the test address (omit `to`). Confirm it looks right (mascot image + copy).
 - **Send to the real recipient ONLY on the user's explicit OK** — add `"to":"<NOTIFICATION_EMAIL>"`
   to the JSON. Same safety rule as alerts: never auto-send to the real inbox.
+
+## 5. Record the send — move the marker (only after the real send succeeds)
+So the next run's `last-phase-update..HEAD` diff is exact (no double-send, no misses):
+```
+git tag -f last-phase-update HEAD        # advance the cut-off to what was just announced
+```
+Then prepend a dated entry to `docs/phase-updates.md` (marker commit SHA, recipient, one-line gist
+of the bullets sent) and commit both the tag-move note + the changelog. Do this **only** after the
+approved send to the real recipient — not for a test-address preview.
 
 ## Notes
 - Needs the app running (endpoint on :8081). If it's down, start it via `/app` (or a suppressed
