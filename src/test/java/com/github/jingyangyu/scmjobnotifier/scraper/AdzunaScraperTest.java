@@ -76,4 +76,23 @@ class AdzunaScraperTest {
         AdzunaScraper s = scraper(new AdzunaProperties(), u -> RESULTS);
         assertThat(s.scrape("adzuna")).isEmpty();
     }
+
+    @Test
+    void excludesNoiseCompanies() {
+        String twoResults =
+                "{\"results\":[{\"id\":123,\"title\":\"Supply Chain Analyst\","
+                        + "\"company\":{\"display_name\":\"Acme\"},"
+                        + "\"location\":{\"display_name\":\"San Jose, CA\"},"
+                        + "\"redirect_url\":\"https://x/123\"},"
+                        + "{\"id\":456,\"title\":\"Buyer\","
+                        + "\"company\":{\"display_name\":\"Aerotek Staffing\"},"
+                        + "\"location\":{\"display_name\":\"San Jose, CA\"},"
+                        + "\"redirect_url\":\"https://x/456\"}]}";
+        AdzunaScraper s = scraper(configured(), u -> u.contains("/search/1") ? twoResults : "{}");
+        List<JobPosting> jobs = s.scrape("adzuna");
+        assertThat(jobs)
+                .extracting(JobPosting::getExternalId)
+                .contains("adz-123")
+                .doesNotContain("adz-456");
+    }
 }
