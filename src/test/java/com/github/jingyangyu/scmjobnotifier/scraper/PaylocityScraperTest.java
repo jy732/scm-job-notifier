@@ -26,6 +26,21 @@ class PaylocityScraperTest {
     }
 
     @Test
+    void scrapeParsesMultipleRecordsWithEscapes() {
+        String html =
+                "<script>var d = {\"Jobs\":[{\"JobId\":1,\"JobTitle\":\"Buyer \\u0026 Planner\","
+                        + "\"City\":\"San Jose\",\"State\":\"CA\","
+                        + "\"PublishedDate\":\"2026-08-01T00:00:00\"},"
+                        + "{\"JobId\":2,\"JobTitle\":\"Sourcing Specialist\",\"City\":\"Irvine\","
+                        + "\"State\":\"CA\",\"PublishedDate\":\"2026-08-02T00:00:00\"}]};</script>";
+        PaylocityScraper s =
+                new PaylocityScraper(WebClientStubs.text(u -> html, "text/html"), props());
+        List<JobPosting> jobs = s.scrape("baycitiescontainer");
+        assertThat(jobs).hasSize(2);
+        assertThat(jobs.get(0).getTitle()).contains("&"); // & unescaped
+    }
+
+    @Test
     void scrapeParsesJobsArray() {
         PaylocityScraper s =
                 new PaylocityScraper(WebClientStubs.text(u -> HTML, "text/html"), props());
