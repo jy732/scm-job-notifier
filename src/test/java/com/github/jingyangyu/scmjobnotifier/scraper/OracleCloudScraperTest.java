@@ -51,4 +51,19 @@ class OracleCloudScraperTest {
         OracleCloudScraper s = new OracleCloudScraper(WebClientStubs.json(u -> BODY), props());
         assertThat(s.scrape("nope")).isEmpty();
     }
+
+    @Test
+    void keywordFilteredModeRunsQueriesAndDedupes() {
+        OracleCloudCompany c = new OracleCloudCompany();
+        c.setName("albertsons");
+        c.setSubdomain("eofd");
+        c.setRegion("us6");
+        c.setSiteNumber("CX_1001");
+        c.setKeywordFiltered(true);
+        OracleCloudProperties p = new OracleCloudProperties();
+        p.setCompanies(List.of(c));
+        OracleCloudScraper s = new OracleCloudScraper(WebClientStubs.json(u -> BODY), p);
+        // every SCM query returns the same requisition → deduped to one by Id
+        assertThat(s.scrape("albertsons")).hasSize(1);
+    }
 }
