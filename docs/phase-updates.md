@@ -8,6 +8,17 @@ Newest first.
 
 ---
 
+## 2026-08-27 — Company-expansion wave + shift-labor filter + missed-jobs keywords
+- **Marker commit:** `ab53f11`
+- **Recipient:** jollyy1999@gmail.com
+- **Gist:** (1) big batch of new **official career-page** sources — semis (AMD/Intel/Qualcomm/Applied
+  Materials/Micron/NXP/Lam), AI (Anthropic/OpenAI), retail/CPG (Williams-Sonoma/Ross/Albertsons),
+  EV/space/defense (Rivian/K2 Space/Hadrian), and CA local mfrs (GILLIG/CelLink/Antora/Cohu/iHerb/
+  Pivotal); (2) hourly **shift/night-shift** labor now filtered out; (3) previously-missed job types
+  caught (**Purchaser**, **Shipping**).
+
+---
+
 ## 2026-08-XX — Tesla + Workday multi-location fix (boundary seed)
 - **Marker commit:** `210d512` (Tesla: scrape careers board via Bright Data Web Unlocker)
 - **Recipient:** jollyy1999@gmail.com
