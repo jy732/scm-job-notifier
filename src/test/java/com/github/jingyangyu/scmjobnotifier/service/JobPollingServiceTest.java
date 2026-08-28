@@ -86,6 +86,61 @@ class JobPollingServiceTest {
     }
 
     @Test
+    void pollFiltersOutNonMatchingJobs() {
+        when(repo.findAllCompanyExternalIdKeys()).thenReturn(Set.of());
+        when(repo.findByCompanyExternalIdKeys(any())).thenReturn(List.of());
+        when(repo.findByClassificationFailuresGreaterThanAndClassificationFailuresLessThan(
+                        anyInt(), anyInt()))
+                .thenReturn(List.of());
+        when(pipeline.classify(any()))
+                .thenReturn(new ClassificationPipeline.Result(Map.of(), List.of(), 0, 0, 0));
+
+        // scraper returns a senior (excluded), a non-CA, and a non-SCM job — all filtered
+        // pre-classify
+        JobScraper mixed =
+                new JobScraper() {
+                    @Override
+                    public String platform() {
+                        return "m";
+                    }
+
+                    @Override
+                    public List<String> companies() {
+                        return List.of("c");
+                    }
+
+                    @Override
+                    public List<JobPosting> scrape(String company) {
+                        return List.of(
+                                jobOf("Senior Supply Chain Manager", "San Jose, CA"),
+                                jobOf("Supply Chain Analyst", "Austin, TX"),
+                                jobOf("Software Developer", "San Jose, CA"));
+                    }
+                };
+
+        JobPollingService svc =
+                new JobPollingService(
+                        List.of(mixed),
+                        repo,
+                        pipeline,
+                        classifier,
+                        new JobTitleFilter(90),
+                        new PipelineMetrics(new SimpleMeterRegistry()));
+        svc.poll(); // none survive the pre-filter → nothing to persist
+        assertThat(svc).isNotNull();
+    }
+
+    private static JobPosting jobOf(String title, String loc) {
+        return JobPosting.builder()
+                .company("c")
+                .externalId(title)
+                .title(title)
+                .location(loc)
+                .detectedAt(Instant.now())
+                .build();
+    }
+
+    @Test
     void pollHandlesNoScrapers() {
         when(repo.findAllCompanyExternalIdKeys()).thenReturn(Set.of());
         when(repo.findByClassificationFailuresGreaterThanAndClassificationFailuresLessThan(

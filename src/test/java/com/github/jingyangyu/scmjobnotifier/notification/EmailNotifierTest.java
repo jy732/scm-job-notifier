@@ -57,4 +57,15 @@ class EmailNotifierTest {
     void sendDailySummary() {
         assertThat(notifier.sendDailySummary(List.of(job()))).isTrue();
     }
+
+    @Test
+    void notConfiguredReturnsFalse() {
+        EmailNotifier n = new EmailNotifier(sender, "", "from@x.com");
+        assertThat(n.sendNewJobAlert(List.of(job()))).isFalse();
+    }
+
+    @Test
+    void emptyNewJobsReturnsFalse() {
+        assertThat(notifier.sendNewJobAlert(List.of())).isFalse();
+    }
 }
