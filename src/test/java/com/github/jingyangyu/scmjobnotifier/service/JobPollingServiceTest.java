@@ -141,6 +141,39 @@ class JobPollingServiceTest {
     }
 
     @Test
+    void pollRetriesFailedAndAutoApprovesExhausted() {
+        JobPosting retryJob = jobOf("Retry Analyst", "San Jose, CA");
+        retryJob.setClassificationFailures(1);
+        JobPosting exhausted = jobOf("Exhausted Buyer", "San Jose, CA");
+        exhausted.setClassificationFailures(3);
+
+        when(repo.findAllCompanyExternalIdKeys()).thenReturn(Set.of());
+        when(repo.findByCompanyExternalIdKeys(any())).thenReturn(List.of());
+        when(repo.findByClassificationFailuresGreaterThanAndClassificationFailuresLessThan(0, 3))
+                .thenReturn(List.of(retryJob));
+        when(repo.findByClassificationFailuresGreaterThanAndClassificationFailuresLessThan(
+                        2, Integer.MAX_VALUE))
+                .thenReturn(List.of(exhausted));
+        when(classifier.classify(any()))
+                .thenReturn(
+                        new com.github.jingyangyu.scmjobnotifier.service.classification
+                                .ClassificationResult(Map.of(retryJob, "ENTRY_LEVEL"), List.of()));
+
+        JobPollingService svc =
+                new JobPollingService(
+                        List.of(),
+                        repo,
+                        pipeline,
+                        classifier,
+                        new JobTitleFilter(90),
+                        new PipelineMetrics(new SimpleMeterRegistry()));
+        svc.poll();
+
+        verify(classifier).classify(any()); // retry jobs re-classified
+        verify(repo, atLeastOnce()).save(any()); // exhausted auto-approved as UNSURE
+    }
+
+    @Test
     void pollHandlesNoScrapers() {
         when(repo.findAllCompanyExternalIdKeys()).thenReturn(Set.of());
         when(repo.findByClassificationFailuresGreaterThanAndClassificationFailuresLessThan(
