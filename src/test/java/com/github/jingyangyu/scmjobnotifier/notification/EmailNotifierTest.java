@@ -65,7 +65,8 @@ class EmailNotifierTest {
     }
 
     @Test
-    void emptyNewJobsReturnsFalse() {
-        assertThat(notifier.sendNewJobAlert(List.of())).isFalse();
+    void emptyNewJobsIsNoOpSuccess() {
+        // nothing to send is treated as success (no email dispatched)
+        assertThat(notifier.sendNewJobAlert(List.of())).isTrue();
     }
 }
