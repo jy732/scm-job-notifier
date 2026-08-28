@@ -52,6 +52,16 @@ class GeminiClientTest {
     }
 
     @Test
+    void classifyLevelEndToEndViaStubbedApi() {
+        String apiResponse =
+                "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"1: ENTRY_LEVEL\"}]}}]}";
+        GeminiClient c = new GeminiClient(WebClientStubs.json(u -> apiResponse), "key", "model");
+        JobPosting j = job("1");
+        Map<JobPosting, String> levels = c.classifyLevel(List.of(j));
+        assertThat(levels).containsEntry(j, "ENTRY_LEVEL");
+    }
+
+    @Test
     void configuredWhenApiKeyPresent() {
         GeminiClient c =
                 new GeminiClient(WebClientStubs.json(u -> "{}"), "a-key", "gemini-2.5-flash");
