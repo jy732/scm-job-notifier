@@ -12,6 +12,8 @@ class SmartRecruitersScraperTest {
     private static final String BODY =
             "{\"totalFound\":1,\"content\":[{\"id\":\"s1\",\"name\":\"Buyer\","
                     + "\"location\":{\"city\":\"San Jose\",\"region\":\"CA\",\"country\":\"us\"},"
+                    + "\"jobAd\":{\"sections\":{\"jobDescription\":{\"text\":"
+                    + "\"Manage the supply chain and procurement operations.\"}}},"
                     + "\"relatedLinks\":{\"careerPage\":\"https://x/s1\"}}]}";
 
     @Test
@@ -32,6 +34,7 @@ class SmartRecruitersScraperTest {
         assertThat(j.getExternalId()).isEqualTo("s1");
         assertThat(j.getLocation()).contains("San Jose");
         assertThat(j.getUrl()).isEqualTo("https://x/s1");
+        assertThat(j.getDescription()).contains("supply chain");
     }
 
     @Test

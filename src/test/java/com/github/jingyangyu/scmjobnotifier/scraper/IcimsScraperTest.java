@@ -40,4 +40,20 @@ class IcimsScraperTest {
         assertThat(j.getLocation()).contains("San Jose");
         assertThat(j.getUrl()).contains("/jobs/55/buyer/job");
     }
+
+    @Test
+    void fetchDescriptionsExtractsJobContent() {
+        String descHtml = "<div class=\"iCIMS_JobContent\">" + "detail ".repeat(60) + "</div>";
+        IcimsScraper s = new IcimsScraper(WebClientStubs.text(u -> descHtml, "text/html"), props());
+        com.github.jingyangyu.scmjobnotifier.model.JobPosting j =
+                com.github.jingyangyu.scmjobnotifier.model.JobPosting.builder()
+                        .company("nikkiso")
+                        .externalId("55")
+                        .title("Buyer")
+                        .url("https://careers-nikkiso.icims.com/jobs/55/buyer/job")
+                        .detectedAt(java.time.Instant.now())
+                        .build();
+        s.fetchDescriptions(List.of(j));
+        assertThat(j.getDescription()).contains("detail");
+    }
 }
