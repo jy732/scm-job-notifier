@@ -167,6 +167,9 @@ final class FilterKeywords {
                     "procurement",
                     "sourcing",
                     "purchasing",
+                    // "purchaser" — the Adzuna filter-audit found "Medical Equipment Purchaser"
+                    // dropped as non-SCM; "purchasing" alone doesn't match the noun form.
+                    "purchaser",
                     "buyer",
                     "demand planning",
                     "supply planning",
@@ -187,6 +190,10 @@ final class FilterKeywords {
                     "mrp",
                     "s&op",
                     "freight",
+                    // "shipping" — audit found "Domestic & International Shipping Specialist"
+                    // dropped; a core logistics term. Labor variants ("Shipping Associate") are
+                    // backstopped by NON_SCM_ROLE_KEYWORDS / the shift-labor exclude.
+                    "shipping",
                     "customs",
                     "order management",
                     "3pl",
