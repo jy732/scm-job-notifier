@@ -40,4 +40,10 @@ class LeverScraperTest {
         LeverScraper s = new LeverScraper(WebClientStubs.erroring(), "acme");
         assertThat(s.scrape("acme")).isEmpty();
     }
+
+    @Test
+    void nullBodyReturnsEmpty() {
+        LeverScraper s = new LeverScraper(WebClientStubs.json(u -> "null"), "acme");
+        assertThat(s.scrape("acme")).isEmpty();
+    }
 }

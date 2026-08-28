@@ -57,4 +57,21 @@ class GreenhouseScraperTest {
         s.fetchDescriptions(jobs);
         assertThat(jobs.get(0).getDescription()).contains("Hello").doesNotContain("<p>");
     }
+
+    @Test
+    void fetchDescriptionsToleratesDetailError() {
+        // list parses fine, but the per-job detail returns undecodable body -> catch, no throw
+        GreenhouseScraper s = scraper(LIST, "not-json{");
+        List<JobPosting> jobs = s.scrape("acme");
+        s.fetchDescriptions(jobs);
+        assertThat(jobs.get(0).getDescription()).isEqualTo("");
+    }
+
+    @Test
+    void badUpdatedAtYieldsNullPostedDate() {
+        String list =
+                "{\"jobs\":[{\"id\":9,\"title\":\"Buyer\",\"location\":{\"name\":\"SF, CA\"},"
+                        + "\"absolute_url\":\"https://x/9\",\"updated_at\":\"nope\"}]}";
+        assertThat(scraper(list, DETAIL).scrape("acme").get(0).getPostedDate()).isNull();
+    }
 }

@@ -62,6 +62,27 @@ class GeminiClientTest {
     }
 
     @Test
+    void parseLevelResponseReturnsNullOnMalformedShape() {
+        // candidate missing "content" -> NPE inside try -> caught -> null
+        Map<String, Object> response = Map.of("candidates", List.of(Map.of("noContent", "x")));
+        assertThat(client().parseLevelResponse(response, List.of(job("1")))).isNull();
+    }
+
+    @Test
+    void buildPromptCountsJobsWithSignals() {
+        JobPosting withSignal =
+                JobPosting.builder()
+                        .company("c")
+                        .externalId("1")
+                        .title("New Grad Supply Chain Analyst")
+                        .description("Entry level role for recent graduates. 0-2 years experience.")
+                        .detectedAt(Instant.now())
+                        .build();
+        String prompt = client().buildPrompt(List.of(withSignal, job("2")));
+        assertThat(prompt).contains("Title:").contains("Signals:");
+    }
+
+    @Test
     void configuredWhenApiKeyPresent() {
         GeminiClient c =
                 new GeminiClient(WebClientStubs.json(u -> "{}"), "a-key", "gemini-2.5-flash");

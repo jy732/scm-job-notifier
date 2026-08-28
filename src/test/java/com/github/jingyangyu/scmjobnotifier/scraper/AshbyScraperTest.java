@@ -52,4 +52,13 @@ class AshbyScraperTest {
         assertThat(new AshbyScraper(WebClientStubs.json(u -> "{}"), "h").scrape("h")).isEmpty();
         assertThat(new AshbyScraper(WebClientStubs.erroring(), "h").scrape("h")).isEmpty();
     }
+
+    @Test
+    void unparseableDateYieldsNullPostedDate() {
+        String list =
+                "{\"jobs\":[{\"id\":\"h3\",\"title\":\"Buyer\",\"location\":\"SF, CA\","
+                        + "\"publishedAt\":\"not-a-date\"}]}";
+        AshbyScraper s = new AshbyScraper(WebClientStubs.json(u -> list), "hadrian");
+        assertThat(s.scrape("hadrian").get(0).getPostedDate()).isNull();
+    }
 }

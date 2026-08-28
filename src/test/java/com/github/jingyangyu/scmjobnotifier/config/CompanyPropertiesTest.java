@@ -49,6 +49,22 @@ class CompanyPropertiesTest {
     }
 
     @Test
+    void icimsCustomDomain() {
+        IcimsProperties.IcimsCompany c = new IcimsProperties.IcimsCompany();
+        c.setName("x");
+        c.setCustomDomain("careers.example.com");
+        assertThat(c.baseUrl()).isEqualTo("https://careers.example.com");
+    }
+
+    @Test
+    void oracleNoRegion() {
+        OracleCloudProperties.OracleCloudCompany c = new OracleCloudProperties.OracleCloudCompany();
+        c.setSubdomain("sub");
+        c.setRegion(null);
+        assertThat(c.baseUrl()).isEqualTo("https://sub.fa.oraclecloud.com");
+    }
+
+    @Test
     void icims() {
         IcimsProperties.IcimsCompany c = new IcimsProperties.IcimsCompany();
         c.setName("nikkiso");
