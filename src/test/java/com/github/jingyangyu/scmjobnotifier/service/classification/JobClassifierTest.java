@@ -42,6 +42,33 @@ class JobClassifierTest {
     }
 
     @Test
+    void classifiesAcrossMultipleBatches() {
+        // 60 jobs => 2 batches of BATCH_SIZE (50)
+        java.util.List<JobPosting> jobs = new java.util.ArrayList<>();
+        for (int i = 0; i < 60; i++) {
+            jobs.add(
+                    JobPosting.builder()
+                            .company("acme")
+                            .externalId("j" + i)
+                            .title("Buyer")
+                            .detectedAt(Instant.now())
+                            .build());
+        }
+        when(gemini.isConfigured()).thenReturn(true);
+        when(gemini.classifyLevel(anyList()))
+                .thenAnswer(
+                        inv -> {
+                            java.util.List<JobPosting> batch = inv.getArgument(0);
+                            java.util.Map<JobPosting, String> m = new java.util.HashMap<>();
+                            batch.forEach(j -> m.put(j, "OTHER"));
+                            return m;
+                        });
+        var result = classifier.classify(jobs);
+        assertThat(result.getLevelMap()).hasSize(60);
+        verify(gemini, org.mockito.Mockito.times(2)).classifyLevel(anyList());
+    }
+
+    @Test
     void configuredUsesGeminiResult() {
         JobPosting j = job();
         when(gemini.isConfigured()).thenReturn(true);
