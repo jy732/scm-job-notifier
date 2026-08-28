@@ -69,6 +69,18 @@ class JobClassifierTest {
     }
 
     @Test
+    void batchFailureAfterRetriesMarksJobsFailed() {
+        // Gemini throws on every attempt → RetryTemplate exhausts → batch marked failed.
+        // (slow: exercises the real 5s/10s exponential backoff)
+        JobPosting j = job();
+        when(gemini.isConfigured()).thenReturn(true);
+        when(gemini.classifyLevel(anyList())).thenThrow(new RuntimeException("api down"));
+        var result = classifier.classify(List.of(j));
+        assertThat(result.getFailed()).contains(j);
+        assertThat(result.getLevelMap()).isEmpty();
+    }
+
+    @Test
     void configuredUsesGeminiResult() {
         JobPosting j = job();
         when(gemini.isConfigured()).thenReturn(true);

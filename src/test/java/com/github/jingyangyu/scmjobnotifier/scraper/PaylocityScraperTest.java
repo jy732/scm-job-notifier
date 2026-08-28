@@ -31,7 +31,8 @@ class PaylocityScraperTest {
                 "<script>var d = {\"Jobs\":[{\"JobId\":1,\"JobTitle\":\"Buyer \\u0026 Planner\","
                         + "\"City\":\"San Jose\",\"State\":\"CA\","
                         + "\"PublishedDate\":\"2026-08-01T00:00:00\"},"
-                        + "{\"JobId\":2,\"JobTitle\":\"Sourcing Specialist\",\"City\":\"Irvine\","
+                        + "{\"JobId\":2,\"JobTitle\":\"Sourcing \\\"Specialist\\\" \\\\ \\n\\t\","
+                        + "\"City\":\"Irvine\","
                         + "\"State\":\"CA\",\"PublishedDate\":\"2026-08-02T00:00:00\"}]};</script>";
         PaylocityScraper s =
                 new PaylocityScraper(WebClientStubs.text(u -> html, "text/html"), props());
