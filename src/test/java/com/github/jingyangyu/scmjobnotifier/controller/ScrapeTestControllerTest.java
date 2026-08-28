@@ -117,4 +117,31 @@ class ScrapeTestControllerTest {
         assertThat(r).containsKey("status");
         verify(poll).poll();
     }
+
+    private final JobScraper throwing =
+            new JobScraper() {
+                @Override
+                public String platform() {
+                    return "boom";
+                }
+
+                @Override
+                public List<String> companies() {
+                    return List.of("c");
+                }
+
+                @Override
+                public List<JobPosting> scrape(String company) {
+                    throw new RuntimeException("scrape failed");
+                }
+            };
+
+    @Test
+    void auditsSurviveScraperException() {
+        ScrapeTestController c =
+                new ScrapeTestController(List.of(throwing), poll, email, new JobTitleFilter(90));
+        assertThat(c.scrapeAll().block()).isNotNull();
+        assertThat(c.locationAudit().block()).isNotNull();
+        assertThat(c.filterAudit(null, null).block()).isNotNull();
+    }
 }

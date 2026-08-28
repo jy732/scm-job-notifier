@@ -69,4 +69,30 @@ class EmailNotifierTest {
         // nothing to send is treated as success (no email dispatched)
         assertThat(notifier.sendNewJobAlert(List.of())).isTrue();
     }
+
+    private static JobPosting varied(String level, String source, String loc) {
+        return JobPosting.builder()
+                .company("acme")
+                .externalId(level + source)
+                .title("Supply Chain " + level)
+                .url("https://x/1")
+                .location(loc)
+                .level(level)
+                .source(source)
+                .postedDate(Instant.now())
+                .detectedAt(Instant.now())
+                .build();
+    }
+
+    @Test
+    void richAlertExercisesDirectAndAdzunaSections() {
+        // direct (source null) + Adzuna-sourced + internship — hits the grouped-section branches
+        List<JobPosting> jobs =
+                List.of(
+                        varied("ENTRY_LEVEL", null, "San Jose, CA"),
+                        varied("INTERNSHIP", null, "Irvine, CA"),
+                        varied("UNSURE", "adzuna", "Los Angeles, CA"));
+        assertThat(notifier.sendNewJobAlert(jobs)).isTrue();
+        assertThat(notifier.sendDailySummary(jobs)).isTrue();
+    }
 }
