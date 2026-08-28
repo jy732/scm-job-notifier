@@ -130,6 +130,21 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.12</version>
+                <configuration>
+                    <!-- Excluded: genuinely un-unit-testable glue — the main class, the Playwright
+                         browser bean factory, the browser-driving scrapers (real Chrome), and the
+                         Bright Data Web Unlocker scraper. Their pure parse logic IS tested
+                         separately (e.g. TeslaStateParserTest). -->
+                    <excludes>
+                        <exclude>**/ScmJobNotifierApplication.class</exclude>
+                        <exclude>**/config/PlaywrightConfig.class</exclude>
+                        <exclude>**/scraper/AppleScraper.class</exclude>
+                        <exclude>**/scraper/GoogleScraper.class</exclude>
+                        <exclude>**/scraper/MetaScraper.class</exclude>
+                        <exclude>**/scraper/BrassRingScraper.class</exclude>
+                        <exclude>**/scraper/TeslaScraper.class</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>
