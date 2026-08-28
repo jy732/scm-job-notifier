@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.github.jingyangyu.scmjobnotifier.config.SuccessFactorsProperties;
 import com.github.jingyangyu.scmjobnotifier.model.JobPosting;
 import com.github.jingyangyu.scmjobnotifier.support.WebClientStubs;
+import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -38,5 +39,23 @@ class SuccessFactorsScraperTest {
         JobPosting j = jobs.get(0);
         assertThat(j.getExternalId()).isEqualTo("123");
         assertThat(j.getTitle()).isEqualTo("Buyer");
+    }
+
+    @Test
+    void fetchDescriptionsExtractsMarkedText() {
+        String desc =
+                "<div data-careersite-propertyid=\"description\">" + "a".repeat(300) + "</div>";
+        SuccessFactorsScraper s =
+                new SuccessFactorsScraper(WebClientStubs.text(u -> desc, "text/html"), props());
+        JobPosting j =
+                JobPosting.builder()
+                        .company("supermicro")
+                        .externalId("1")
+                        .title("Buyer")
+                        .url("https://jobs.supermicro.com/job/1")
+                        .detectedAt(Instant.now())
+                        .build();
+        s.fetchDescriptions(List.of(j));
+        assertThat(j.getDescription()).isNotEmpty();
     }
 }
