@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Admin endpoint to replay classification for jobs processed during a degraded window and re-queue
@@ -54,32 +55,36 @@ public class ClassificationReplayController {
             @RequestParam(defaultValue = "0") int limit,
             @RequestParam(defaultValue = "true") boolean dryRun) {
         return Mono.fromCallable(
-                () -> {
-                    Set<String> src = parseSources(sources);
-                    Instant sinceTs;
-                    Instant untilTs;
-                    try {
-                        sinceTs = parseInstant(since);
-                        untilTs = parseInstant(until);
-                    } catch (Exception e) {
-                        return ReplaySummary.error(
-                                "invalid since/until — use an ISO-8601 instant like"
-                                        + " 2026-08-28T00:00:00Z: "
-                                        + e.getMessage());
-                    }
-                    // Default to the low-confidence provenance when nothing was specified at all.
-                    if (src == null && sinceTs == null && untilTs == null) {
-                        src = DEFAULT_SOURCES;
-                    }
-                    log.info(
-                            "Replay requested: sources={}, since={}, until={}, limit={}, dryRun={}",
-                            src,
-                            sinceTs,
-                            untilTs,
-                            limit,
-                            dryRun);
-                    return replayService.replay(src, sinceTs, untilTs, limit, dryRun);
-                });
+                        () -> {
+                            Set<String> src = parseSources(sources);
+                            Instant sinceTs;
+                            Instant untilTs;
+                            try {
+                                sinceTs = parseInstant(since);
+                                untilTs = parseInstant(until);
+                            } catch (Exception e) {
+                                return ReplaySummary.error(
+                                        "invalid since/until — use an ISO-8601 instant like"
+                                                + " 2026-08-28T00:00:00Z: "
+                                                + e.getMessage());
+                            }
+                            // Default to the low-confidence provenance when nothing was specified
+                            // at all.
+                            if (src == null && sinceTs == null && untilTs == null) {
+                                src = DEFAULT_SOURCES;
+                            }
+                            log.info(
+                                    "Replay requested: sources={}, since={}, until={}, limit={}, dryRun={}",
+                                    src,
+                                    sinceTs,
+                                    untilTs,
+                                    limit,
+                                    dryRun);
+                            return replayService.replay(src, sinceTs, untilTs, limit, dryRun);
+                        })
+                // Off the Netty event loop: the pipeline's Gemini client blocks, which Reactor
+                // forbids on reactor-http-nio threads.
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     private static Set<String> parseSources(String csv) {
