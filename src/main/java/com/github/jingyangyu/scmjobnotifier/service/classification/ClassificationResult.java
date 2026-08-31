@@ -27,8 +27,22 @@ public class ClassificationResult {
     /** Jobs where Gemini API calls failed after retries. */
     private final List<JobPosting> failed;
 
+    /**
+     * Provenance per classified job (see {@link ClassificationSource}): {@code GEMINI} for a real
+     * verdict, {@code FALLBACK_UNSURE} when Gemini was unconfigured. Parallel to {@code levelMap}.
+     */
+    private final Map<JobPosting, String> sourceMap;
+
     public ClassificationResult(Map<JobPosting, String> levelMap, List<JobPosting> failed) {
+        this(levelMap, failed, Map.of());
+    }
+
+    public ClassificationResult(
+            Map<JobPosting, String> levelMap,
+            List<JobPosting> failed,
+            Map<JobPosting, String> sourceMap) {
         this.levelMap = levelMap;
         this.failed = failed;
+        this.sourceMap = sourceMap;
     }
 }

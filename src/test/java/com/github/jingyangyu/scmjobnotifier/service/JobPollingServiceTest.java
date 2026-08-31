@@ -318,7 +318,7 @@ class JobPollingServiceTest {
                         .detectedAt(Instant.now())
                         .build();
 
-        Class<?>[] sig = {List.class, List.class, Map.class};
+        Class<?>[] sig = {List.class, List.class, Map.class, Map.class};
         Object persisted =
                 invoke(
                         svc,
@@ -326,9 +326,11 @@ class JobPollingServiceTest {
                         sig,
                         List.of(a, dup, b),
                         List.of(b), // b failed Gemini -> increments
-                        Map.of(a, "ENTRY_LEVEL")); // a gets level set
+                        Map.of(a, "ENTRY_LEVEL"), // a gets level set
+                        Map.of(a, "GEMINI")); // ...with GEMINI provenance
         assertThat((int) persisted).isEqualTo(2); // a (dedup dup) + b
         assertThat(a.getLevel()).isEqualTo("ENTRY_LEVEL");
+        assertThat(a.getClassificationSource()).isEqualTo("GEMINI");
         assertThat(a.getDetectedAt()).isNotNull();
     }
 

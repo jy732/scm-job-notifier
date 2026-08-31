@@ -67,8 +67,13 @@ public class JobClassifier {
                     "Gemini API key not configured — returning all {} job(s) as UNSURE",
                     jobs.size());
             Map<JobPosting, String> allUnsure = new HashMap<>();
-            jobs.forEach(j -> allUnsure.put(j, "UNSURE"));
-            return new ClassificationResult(allUnsure, Collections.emptyList());
+            Map<JobPosting, String> fallbackSources = new HashMap<>();
+            jobs.forEach(
+                    j -> {
+                        allUnsure.put(j, "UNSURE");
+                        fallbackSources.put(j, ClassificationSource.FALLBACK_UNSURE);
+                    });
+            return new ClassificationResult(allUnsure, Collections.emptyList(), fallbackSources);
         }
 
         int totalBatches = (int) Math.ceil((double) jobs.size() / BATCH_SIZE);
@@ -116,7 +121,9 @@ public class JobClassifier {
                 levelMap.values().stream().filter("OTHER"::equals).count(),
                 failed.size());
 
-        return new ClassificationResult(levelMap, failed);
+        Map<JobPosting, String> sourceMap = new HashMap<>();
+        levelMap.keySet().forEach(j -> sourceMap.put(j, ClassificationSource.GEMINI));
+        return new ClassificationResult(levelMap, failed, sourceMap);
     }
 
     /**

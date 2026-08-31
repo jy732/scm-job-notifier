@@ -50,6 +50,9 @@ public class ClassificationPipeline {
      */
     public Result classify(List<JobPosting> unseen) {
         Map<JobPosting, String> levelMap = new HashMap<>();
+        // Provenance parallel to levelMap: how each job's level was assigned (for
+        // replay/targeting).
+        Map<JobPosting, String> sourceMap = new HashMap<>();
         List<JobPosting> remaining = new ArrayList<>(unseen);
 
         // Stage 1: title-based rules
@@ -58,6 +61,7 @@ public class ClassificationPipeline {
             String level = titleFilter.autoClassifyLevel(job);
             if (level != null) {
                 levelMap.put(job, level);
+                sourceMap.put(job, ClassificationSource.TITLE_RULE);
             } else {
                 afterStage1.add(job);
             }
@@ -70,6 +74,7 @@ public class ClassificationPipeline {
             String level = SignalExtractor.inferLevelFromDescription(job);
             if (level != null) {
                 levelMap.put(job, level);
+                sourceMap.put(job, ClassificationSource.DESC_RULE);
             } else {
                 needsGemini.add(job);
             }
@@ -93,10 +98,12 @@ public class ClassificationPipeline {
         if (!needsGemini.isEmpty()) {
             ClassificationResult result = classifier.classify(needsGemini);
             levelMap.putAll(result.getLevelMap());
+            sourceMap.putAll(result.getSourceMap());
             geminiFailed = result.getFailed();
         }
 
-        return new Result(levelMap, geminiFailed, stage1Count, stage2Count, needsGemini.size());
+        return new Result(
+                levelMap, geminiFailed, stage1Count, stage2Count, needsGemini.size(), sourceMap);
     }
 
     /**
@@ -107,11 +114,26 @@ public class ClassificationPipeline {
      * @param stage1Count jobs classified by title rules
      * @param stage2Count jobs classified by description signals
      * @param stage3Count jobs sent to Gemini
+     * @param sourceMap per-job provenance (see {@link ClassificationSource}), parallel to levelMap
      */
     public record Result(
             Map<JobPosting, String> levelMap,
             List<JobPosting> geminiFailed,
             int stage1Count,
             int stage2Count,
-            int stage3Count) {}
+            int stage3Count,
+            Map<JobPosting, String> sourceMap) {
+
+        /**
+         * Convenience for tests/callers that don't track provenance — defaults an empty sourceMap.
+         */
+        public Result(
+                Map<JobPosting, String> levelMap,
+                List<JobPosting> geminiFailed,
+                int stage1Count,
+                int stage2Count,
+                int stage3Count) {
+            this(levelMap, geminiFailed, stage1Count, stage2Count, stage3Count, Map.of());
+        }
+    }
 }

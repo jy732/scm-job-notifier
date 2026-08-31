@@ -43,6 +43,25 @@ public interface JobPostingRepository extends JpaRepository<JobPosting, Long> {
     List<JobPosting> findByClassificationFailuresGreaterThanAndClassificationFailuresLessThan(
             int min, int max);
 
+    /**
+     * Replay selection by provenance: jobs whose level came from a given set of low-confidence
+     * sources (e.g. FALLBACK_UNSURE / AUTO_APPROVED). Newest first.
+     */
+    @Query(
+            "SELECT jp FROM JobPosting jp WHERE jp.classificationSource IN ?1"
+                    + " ORDER BY jp.detectedAt DESC")
+    List<JobPosting> findByClassificationSourceIn(Set<String> sources);
+
+    /**
+     * Replay selection by time window: jobs detected within {@code [start, end)} — used to re-run a
+     * known degraded period regardless of provenance (covers legacy rows with no source). Newest
+     * first.
+     */
+    @Query(
+            "SELECT jp FROM JobPosting jp WHERE jp.detectedAt >= ?1 AND jp.detectedAt < ?2"
+                    + " ORDER BY jp.detectedAt DESC")
+    List<JobPosting> findByDetectedAtBetween(Instant start, Instant end);
+
     /** Deletes jobs posted before the cutoff for data retention cleanup. */
     @Modifying
     @Query("DELETE FROM JobPosting jp WHERE jp.postedDate < ?1")

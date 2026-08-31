@@ -72,4 +72,19 @@ public class JobPosting {
      * Used to render Adzuna postings in a separate email section.
      */
     private String source;
+
+    /**
+     * How {@link #level} was assigned, for observability and targeted replay:
+     *
+     * <ul>
+     *   <li>{@code GEMINI} — a confident Gemini verdict.
+     *   <li>{@code TITLE_RULE} / {@code DESC_RULE} — a local stage-1/stage-2 rule.
+     *   <li>{@code FALLBACK_UNSURE} — Gemini was unconfigured/degraded, so UNSURE was assumed.
+     *   <li>{@code AUTO_APPROVED} — auto-approved as UNSURE after exhausting Gemini retries.
+     * </ul>
+     *
+     * {@code null} for legacy rows. {@code FALLBACK_UNSURE}/{@code AUTO_APPROVED} are the
+     * low-confidence outcomes a classification replay re-runs once Gemini is healthy again.
+     */
+    private String classificationSource;
 }

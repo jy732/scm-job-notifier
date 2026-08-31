@@ -5,6 +5,7 @@ import com.github.jingyangyu.scmjobnotifier.repository.JobPostingRepository;
 import com.github.jingyangyu.scmjobnotifier.scraper.JobScraper;
 import com.github.jingyangyu.scmjobnotifier.service.classification.ClassificationPipeline;
 import com.github.jingyangyu.scmjobnotifier.service.classification.ClassificationResult;
+import com.github.jingyangyu.scmjobnotifier.service.classification.ClassificationSource;
 import com.github.jingyangyu.scmjobnotifier.service.classification.JobClassifier;
 import com.github.jingyangyu.scmjobnotifier.service.classification.JobTitleFilter;
 import java.time.Duration;
@@ -257,7 +258,7 @@ public class JobPollingService {
         Map<JobPosting, String> levelMap = result.levelMap();
         List<JobPosting> geminiFailed = result.geminiFailed();
 
-        int persisted = persistJobs(unseen, geminiFailed, levelMap);
+        int persisted = persistJobs(unseen, geminiFailed, levelMap, result.sourceMap());
 
         List<JobPosting> allApproved =
                 unseen.stream()
@@ -293,7 +294,8 @@ public class JobPollingService {
     private int persistJobs(
             List<JobPosting> toProcess,
             List<JobPosting> geminiFailed,
-            Map<JobPosting, String> levelMap) {
+            Map<JobPosting, String> levelMap,
+            Map<JobPosting, String> sourceMap) {
         Set<String> failedIds =
                 geminiFailed.stream().map(JobPosting::getExternalId).collect(Collectors.toSet());
         Instant now = Instant.now();
@@ -322,6 +324,7 @@ public class JobPollingService {
                 String level = levelMap.get(job);
                 if (level != null) {
                     target.setLevel(level);
+                    target.setClassificationSource(sourceMap.get(job));
                 }
                 target.setClassificationFailures(0);
             }
@@ -356,6 +359,7 @@ public class JobPollingService {
                     job.getCompany(),
                     job.getTitle());
             job.setLevel("UNSURE");
+            job.setClassificationSource(ClassificationSource.AUTO_APPROVED);
             job.setClassificationFailures(0);
             repository.save(job);
             allNewJobs.add(job);
@@ -370,6 +374,7 @@ public class JobPollingService {
             JobPosting job = entry.getKey();
             String level = entry.getValue();
             job.setLevel(level);
+            job.setClassificationSource(result.getSourceMap().get(job));
             job.setClassificationFailures(0);
             repository.save(job);
             if (NOTIFIABLE.contains(level)) {
