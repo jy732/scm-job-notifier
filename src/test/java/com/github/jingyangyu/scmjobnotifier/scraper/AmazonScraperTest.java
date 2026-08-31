@@ -37,4 +37,31 @@ class AmazonScraperTest {
         AmazonScraper s = new AmazonScraper(WebClientStubs.json(u -> "{\"hits\":0,\"jobs\":[]}"));
         assertThat(s.scrape("amazon")).isEmpty();
     }
+
+    @Test
+    void queryFailureIsCaughtPerQuery() {
+        AmazonScraper s = new AmazonScraper(WebClientStubs.erroring());
+        assertThat(s.scrape("amazon")).isEmpty(); // each query throws -> caught
+    }
+
+    @Test
+    void nullResponseBreaksPagination() {
+        AmazonScraper s = new AmazonScraper(WebClientStubs.json(u -> "null"));
+        assertThat(s.scrape("amazon")).isEmpty();
+    }
+
+    @Test
+    void missingAndBadPostedDatesYieldNull() {
+        String body =
+                "{\"hits\":2,\"jobs\":[{\"id_icims\":\"b1\",\"title\":\"Buyer\","
+                        + "\"job_path\":\"/j/b1\",\"normalized_location\":\"San Jose, CA\","
+                        + "\"posted_date\":\"\"},"
+                        + "{\"id_icims\":\"b2\",\"title\":\"Planner\",\"job_path\":\"/j/b2\","
+                        + "\"normalized_location\":\"Irvine, CA\","
+                        + "\"posted_date\":\"not a date\"}]}";
+        AmazonScraper s = new AmazonScraper(WebClientStubs.json(u -> body));
+        List<JobPosting> jobs = s.scrape("amazon");
+        assertThat(jobs).hasSize(2);
+        assertThat(jobs).allSatisfy(j -> assertThat(j.getPostedDate()).isNull());
+    }
 }

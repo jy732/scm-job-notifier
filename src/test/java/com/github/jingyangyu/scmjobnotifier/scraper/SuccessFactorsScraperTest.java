@@ -58,4 +58,45 @@ class SuccessFactorsScraperTest {
         s.fetchDescriptions(List.of(j));
         assertThat(j.getDescription()).isNotEmpty();
     }
+
+    private static JobPosting job1() {
+        return JobPosting.builder()
+                .company("supermicro")
+                .externalId("1")
+                .title("Buyer")
+                .url("https://jobs.supermicro.com/job/1")
+                .detectedAt(Instant.now())
+                .build();
+    }
+
+    @Test
+    void tileWithoutTitleIsSkipped() {
+        String html =
+                "<li class=\"job-tile job-id-124\" data-url=\"/job/2\"></li>"
+                        + "<li class=\"job-tile job-id-125\" data-url=\"/job/3\">"
+                        + "<a class=\"jobTitle-link\" href=\"x\">Planner</a></li>";
+        SuccessFactorsScraper s =
+                new SuccessFactorsScraper(
+                        WebClientStubs.text(u -> u.contains("startrow=0") ? html : "", "text/html"),
+                        props());
+        assertThat(s.scrape("supermicro")).hasSize(1); // title-less tile skipped
+    }
+
+    @Test
+    void fetchDescriptionsEmptyWhenNoMarker() {
+        SuccessFactorsScraper s =
+                new SuccessFactorsScraper(
+                        WebClientStubs.text(u -> "<div>nothing</div>", "text/html"), props());
+        JobPosting j = job1();
+        s.fetchDescriptions(List.of(j));
+        assertThat(j.getDescription()).isEmpty();
+    }
+
+    @Test
+    void fetchDescriptionsSurvivesError() {
+        SuccessFactorsScraper s = new SuccessFactorsScraper(WebClientStubs.erroring(), props());
+        JobPosting j = job1();
+        s.fetchDescriptions(List.of(j)); // fetch throws -> caught
+        assertThat(j.getDescription()).isNull();
+    }
 }

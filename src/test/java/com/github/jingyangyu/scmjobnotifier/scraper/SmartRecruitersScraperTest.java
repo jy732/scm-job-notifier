@@ -42,4 +42,49 @@ class SmartRecruitersScraperTest {
         SmartRecruitersScraper s = new SmartRecruitersScraper(WebClientStubs.erroring(), "arista");
         assertThat(s.scrape("arista")).isEmpty();
     }
+
+    @Test
+    void nullResponseBreaksPagination() {
+        SmartRecruitersScraper s =
+                new SmartRecruitersScraper(WebClientStubs.json(u -> "null"), "arista");
+        assertThat(s.scrape("arista")).isEmpty();
+    }
+
+    @Test
+    void emptyContentBreaksPagination() {
+        SmartRecruitersScraper s =
+                new SmartRecruitersScraper(
+                        WebClientStubs.json(u -> "{\"totalFound\":99,\"content\":[]}"), "arista");
+        assertThat(s.scrape("arista")).isEmpty();
+    }
+
+    @Test
+    void paginatesAcrossMultiplePages() {
+        // totalFound (150) > PAGE_SIZE (100) so page 0 doesn't break -> loop iterates to page 1
+        String body =
+                "{\"totalFound\":150,\"content\":[{\"id\":\"m1\",\"name\":\"Buyer\","
+                        + "\"location\":{\"city\":\"San Jose\",\"region\":\"CA\"},"
+                        + "\"relatedLinks\":{\"careerPage\":\"https://x/m1\"}}]}";
+        SmartRecruitersScraper s =
+                new SmartRecruitersScraper(WebClientStubs.json(u -> body), "arista");
+        assertThat(s.scrape("arista")).isNotEmpty();
+    }
+
+    @Test
+    void multipleSectionsJoinedAndDatesParsed() {
+        String body =
+                "{\"totalFound\":2,\"content\":[{\"id\":\"sA\",\"name\":\"Buyer\","
+                        + "\"jobAd\":{\"sections\":{"
+                        + "\"jobDescription\":{\"text\":\"Manage supply chain.\"},"
+                        + "\"qualifications\":{\"text\":\"3 years procurement.\"}}},"
+                        + "\"releasedDate\":\"2026-08-01T00:00:00Z\"},"
+                        + "{\"id\":\"sB\",\"name\":\"Planner\",\"releasedDate\":\"bad-date\"}]}";
+        SmartRecruitersScraper s =
+                new SmartRecruitersScraper(WebClientStubs.json(u -> body), "arista");
+        List<JobPosting> jobs = s.scrape("arista");
+        assertThat(jobs).hasSize(2);
+        assertThat(jobs.get(0).getDescription()).contains("supply chain").contains("procurement");
+        assertThat(jobs.get(0).getPostedDate()).isNotNull();
+        assertThat(jobs.get(1).getPostedDate()).isNull();
+    }
 }

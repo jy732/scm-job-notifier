@@ -56,4 +56,48 @@ class IcimsScraperTest {
         s.fetchDescriptions(List.of(j));
         assertThat(j.getDescription()).contains("detail");
     }
+
+    private static JobPosting jobAt(String url) {
+        return JobPosting.builder()
+                .company("nikkiso")
+                .externalId("55")
+                .title("Buyer")
+                .url(url)
+                .detectedAt(java.time.Instant.now())
+                .build();
+    }
+
+    @Test
+    void skipsEmptyTitleAndBlankLocation() {
+        String html =
+                "<a href=\"https://careers-nikkiso.icims.com/jobs/56/x/job\"><h3>   </h3></a>"
+                        + "<a href=\"https://careers-nikkiso.icims.com/jobs/57/buyer/job\">"
+                        + "<h3>Buyer</h3></a>";
+        IcimsScraper s =
+                new IcimsScraper(
+                        WebClientStubs.text(u -> u.contains("pr=0") ? html : "", "text/html"),
+                        props());
+        List<JobPosting> jobs = s.scrape("nikkiso");
+        assertThat(jobs).hasSize(1); // whitespace-title anchor skipped
+        assertThat(jobs.get(0).getLocation()).isEmpty(); // no location span -> ""
+    }
+
+    @Test
+    void fetchDescriptionsEmptyWhenNoMarker() {
+        IcimsScraper s =
+                new IcimsScraper(
+                        WebClientStubs.text(u -> "<div>no marker here</div>", "text/html"),
+                        props());
+        JobPosting j = jobAt("https://careers-nikkiso.icims.com/jobs/55/buyer/job");
+        s.fetchDescriptions(List.of(j));
+        assertThat(j.getDescription()).isEmpty();
+    }
+
+    @Test
+    void fetchDescriptionsSurvivesError() {
+        IcimsScraper s = new IcimsScraper(WebClientStubs.erroring(), props());
+        JobPosting j = jobAt("https://careers-nikkiso.icims.com/jobs/55/buyer/job");
+        s.fetchDescriptions(List.of(j)); // fetch throws -> caught
+        assertThat(j.getDescription()).isNull();
+    }
 }

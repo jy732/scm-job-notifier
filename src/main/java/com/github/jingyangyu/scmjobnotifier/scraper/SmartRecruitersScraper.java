@@ -85,9 +85,7 @@ public class SmartRecruitersScraper implements JobScraper {
                 }
 
                 offset += PAGE_SIZE;
-                if (offset >= totalFound || content.isEmpty()) {
-                    break;
-                }
+                if (offset >= totalFound || content.isEmpty()) break;
             }
 
             log.info("SmartRecruiters [{}]: scraped {} total job(s)", company, allJobs.size());
