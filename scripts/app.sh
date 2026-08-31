@@ -12,9 +12,16 @@
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
-JAR="target/scm-job-notifier-0.0.1-SNAPSHOT.jar"
+# We launch from a STABLE COPY of the jar (run/), never the build artifact in target/.
+# Why: Jakarta Mail resolves its StreamProvider lazily via ServiceLoader on every send,
+# re-reading META-INF/services from the on-disk jar. If a later `mvn package` overwrites
+# target/*.jar under the running JVM, that lazy read hits NoSuchFileException and EVERY
+# alert email fails ("Cannot load interface jakarta.mail.util.StreamProvider"). Running
+# from run/ (outside target/, survives `mvn clean package`) keeps the live jar intact.
+BUILD_JAR="target/scm-job-notifier-0.0.1-SNAPSHOT.jar"
+RUN_JAR="run/scm-job-notifier.jar"
 LOG="app.log"
-PATTERN="scm-job-notifier-0.0.1-SNAPSHOT.jar"
+PATTERN="scm-job-notifier.*jar"
 
 is_running() { pgrep -f "$PATTERN" >/dev/null 2>&1; }
 
@@ -22,7 +29,10 @@ start() {
   if is_running; then echo "already running (pid $(pgrep -f "$PATTERN" | tr '\n' ' '))"; return 0; fi
   echo "building jar…"
   ./mvnw -q -DskipTests package || { echo "✗ build failed"; return 1; }
-  nohup java -jar "$JAR" > "$LOG" 2>&1 &
+  # Copy to a stable path so a future rebuild can't corrupt this running JVM's jar.
+  mkdir -p "$(dirname "$RUN_JAR")"
+  cp -f "$BUILD_JAR" "$RUN_JAR" || { echo "✗ could not stage $RUN_JAR"; return 1; }
+  nohup java -jar "$RUN_JAR" > "$LOG" 2>&1 &
   echo "starting (pid $!) → log: $LOG"
   for _ in $(seq 1 90); do
     grep -q "Started ScmJobNotifierApplication" "$LOG" 2>/dev/null && { echo "✓ started"; grep -i "Email configured" "$LOG" | tail -1; return 0; }
