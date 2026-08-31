@@ -59,6 +59,69 @@ class OracleCloudScraperTest {
     }
 
     @Test
+    void nullResponseBreaksPagination() {
+        OracleCloudScraper s = new OracleCloudScraper(WebClientStubs.json(u -> "null"), props());
+        assertThat(s.scrape("cohu")).isEmpty();
+    }
+
+    @Test
+    void emptyItemsBreaksPagination() {
+        OracleCloudScraper s =
+                new OracleCloudScraper(WebClientStubs.json(u -> "{\"items\":[]}"), props());
+        assertThat(s.scrape("cohu")).isEmpty();
+    }
+
+    @Test
+    void qualificationsAppendedToDescription() {
+        String body =
+                "{\"items\":[{\"TotalJobsCount\":1,\"requisitionList\":[{\"Id\":\"R2\","
+                        + "\"Title\":\"Buyer\",\"PrimaryLocation\":\"San Jose, CA\","
+                        + "\"ExternalDescriptionStr\":\"<p>Role</p>\","
+                        + "\"ExternalQualificationsStr\":\"<p>Quals</p>\","
+                        + "\"PostedDate\":\"2026-08-01\"}]}]}";
+        OracleCloudScraper s = new OracleCloudScraper(WebClientStubs.json(u -> body), props());
+        assertThat(s.scrape("cohu").get(0).getDescription()).contains("Role").contains("Quals");
+    }
+
+    @Test
+    void parsesIsoInstantAndToleratesBadDate() {
+        String body =
+                "{\"items\":[{\"TotalJobsCount\":2,\"requisitionList\":["
+                        + "{\"Id\":\"R3\",\"Title\":\"Buyer\",\"PrimaryLocation\":\"San Jose, CA\","
+                        + "\"PostedDate\":\"2026-08-01T12:00:00Z\"},"
+                        + "{\"Id\":\"R4\",\"Title\":\"Planner\",\"PrimaryLocation\":\"Irvine, CA\","
+                        + "\"PostedDate\":\"garbage\"}]}]}";
+        OracleCloudScraper s = new OracleCloudScraper(WebClientStubs.json(u -> body), props());
+        List<JobPosting> jobs = s.scrape("cohu");
+        assertThat(jobs).hasSize(2);
+        assertThat(jobs.get(0).getPostedDate()).isNotNull(); // ISO instant parsed
+        assertThat(jobs.get(1).getPostedDate()).isNull(); // bad date -> null
+    }
+
+    @Test
+    void emptyRequisitionListBreaksPagination() {
+        // items present but requisitionList empty with a high total -> requisitions.isEmpty() break
+        String body = "{\"items\":[{\"TotalJobsCount\":9999,\"requisitionList\":[]}]}";
+        OracleCloudScraper s = new OracleCloudScraper(WebClientStubs.json(u -> body), props());
+        assertThat(s.scrape("cohu")).isEmpty();
+    }
+
+    @Test
+    void keywordFilteredQueryFailureIsCaught() {
+        OracleCloudCompany c = new OracleCloudCompany();
+        c.setName("albertsons");
+        c.setSubdomain("eofd");
+        c.setRegion("us6");
+        c.setSiteNumber("CX_1001");
+        c.setKeywordFiltered(true);
+        OracleCloudProperties p = new OracleCloudProperties();
+        p.setCompanies(List.of(c));
+        // every query's paginate throws -> caught per-query, scrape returns empty
+        OracleCloudScraper s = new OracleCloudScraper(WebClientStubs.erroring(), p);
+        assertThat(s.scrape("albertsons")).isEmpty();
+    }
+
+    @Test
     void keywordFilteredModeRunsQueriesAndDedupes() {
         OracleCloudCompany c = new OracleCloudCompany();
         c.setName("albertsons");
