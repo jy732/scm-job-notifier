@@ -86,6 +86,80 @@ class AdzunaScraperTest {
         assertThat(s.scrape("adzuna")).isEmpty(); // within throttle window
     }
 
+    private AdzunaScraper scraperWithGreenhouse(String gh, Function<String, String> stub) {
+        return new AdzunaScraper(
+                WebClientStubs.json(stub),
+                configured(),
+                new WorkdayProperties(),
+                new OracleCloudProperties(),
+                new IcimsProperties(),
+                new SuccessFactorsProperties(),
+                new PaylocityProperties(),
+                new BrassRingProperties(),
+                gh,
+                "",
+                "",
+                "",
+                "");
+    }
+
+    @Test
+    void nullBodyBreaksPagination() {
+        AdzunaScraper s = scraper(configured(), u -> "null");
+        assertThat(s.scrape("adzuna")).isEmpty();
+    }
+
+    @Test
+    void resultsNotAListReturnsEmpty() {
+        AdzunaScraper s =
+                scraper(configured(), u -> u.contains("/search/1") ? "{\"results\":5}" : "{}");
+        assertThat(s.scrape("adzuna")).isEmpty();
+    }
+
+    @Test
+    void jobWithoutIdIsSkipped() {
+        String body =
+                "{\"results\":[{\"title\":\"Buyer\","
+                        + "\"company\":{\"display_name\":\"Acme\"},"
+                        + "\"location\":{\"display_name\":\"San Jose, CA\"}}]}";
+        AdzunaScraper s = scraper(configured(), u -> u.contains("/search/1") ? body : "{}");
+        assertThat(s.scrape("adzuna")).isEmpty(); // no id -> toJobPosting null -> skipped
+    }
+
+    @Test
+    void shortCompanyNameIsNotExcluded() {
+        String body =
+                "{\"results\":[{\"id\":789,\"title\":\"Supply Chain Analyst\","
+                        + "\"company\":{\"display_name\":\"AB\"},"
+                        + "\"location\":{\"display_name\":\"San Jose, CA\"},"
+                        + "\"redirect_url\":\"https://x/789\"}]}";
+        AdzunaScraper s = scraper(configured(), u -> u.contains("/search/1") ? body : "{}");
+        assertThat(s.scrape("adzuna")).extracting(JobPosting::getExternalId).contains("adz-789");
+    }
+
+    @Test
+    void companyMatchingExcludeTokenIsDropped() {
+        String body =
+                "{\"results\":[{\"id\":321,\"title\":\"Supply Chain Analyst\","
+                        + "\"company\":{\"display_name\":\"Acme Corporation\"},"
+                        + "\"location\":{\"display_name\":\"San Jose, CA\"},"
+                        + "\"redirect_url\":\"https://x/321\"}]}";
+        // greenhouse company "acme" becomes an exclude token; the Adzuna hit for Acme is dropped
+        AdzunaScraper s = scraperWithGreenhouse("acme", u -> u.contains("/search/1") ? body : "{}");
+        assertThat(s.scrape("adzuna")).isEmpty();
+    }
+
+    @Test
+    void badCreatedDateYieldsNullPostedDate() {
+        String body =
+                "{\"results\":[{\"id\":654,\"title\":\"Supply Chain Analyst\","
+                        + "\"company\":{\"display_name\":\"Acme\"},"
+                        + "\"location\":{\"display_name\":\"San Jose, CA\"},"
+                        + "\"redirect_url\":\"https://x/654\",\"created\":\"garbage\"}]}";
+        AdzunaScraper s = scraper(configured(), u -> u.contains("/search/1") ? body : "{}");
+        assertThat(s.scrape("adzuna").get(0).getPostedDate()).isNull();
+    }
+
     @Test
     void excludesNoiseCompanies() {
         String twoResults =
