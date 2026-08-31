@@ -8,6 +8,20 @@ Newest first.
 
 ---
 
+## 2026-08-31 — Reliability wave: email-delivery fix + backlog recovery + classification replay
+- **Marker commit:** `8394e22`
+- **Recipient:** jollyy1999@gmail.com
+- **Gist:** (1) fixed the **email-delivery** bug — Jakarta Mail's lazy StreamProvider ServiceLoader
+  broke when the jar was rebuilt under the running app, silently failing ~619 alert sends; now runs
+  from a stable jar copy so alerts land reliably; (2) **re-sent the backlog** of alerts that had
+  failed during that window; (3) **Gemini outage** noted briefly — it degraded gracefully (UNSURE
+  fallback still emailed, no misses), and `.env` sourcing in the launcher prevents the key from
+  silently dropping again; (4) fixed an NPE that could silently drop a company's jobs mid
+  classify/persist; (5) new **classification replay** (`/api/replay/classification`) that re-checks
+  and recovers mis-filtered ("OTHER") jobs — recovered 11 this round.
+
+---
+
 ## 2026-08-27 — Company-expansion wave + shift-labor filter + missed-jobs keywords
 - **Marker commit:** `ab53f11`
 - **Recipient:** jollyy1999@gmail.com
