@@ -8,6 +8,12 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.web.reactive.function.client.ClientResponse;
+import org.springframework.web.reactive.function.client.ExchangeFunction;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 import tools.jackson.databind.ObjectMapper;
 
 class RossStoresScraperTest {
@@ -53,6 +59,73 @@ class RossStoresScraperTest {
     void emptyOnError() {
         RossStoresScraper s = new RossStoresScraper(WebClientStubs.erroring(), new ObjectMapper());
         assertThat(s.scrape("rossstores")).isEmpty();
+    }
+
+    @Test
+    void companiesReturnsRossStores() {
+        assertThat(scraper().companies()).containsExactly("rossstores");
+    }
+
+    @Test
+    void blankSearchBodyBreaks() {
+        RossStoresScraper s =
+                new RossStoresScraper(
+                        WebClientStubs.text(u -> "", "application/json"), new ObjectMapper());
+        assertThat(s.scrape("rossstores")).isEmpty();
+    }
+
+    @Test
+    void emptyRecordsArrayBreaks() {
+        RossStoresScraper s =
+                new RossStoresScraper(
+                        WebClientStubs.text(
+                                u -> u.contains("SearchResults") ? "{\"Records\":[]}" : "",
+                                "application/json"),
+                        new ObjectMapper());
+        assertThat(s.scrape("rossstores")).isEmpty();
+    }
+
+    @Test
+    void bootstrapCollectsSessionCookies() {
+        ExchangeFunction ex =
+                req -> {
+                    String u = req.url().toString();
+                    if (u.contains("SearchResults")) {
+                        return Mono.just(
+                                ClientResponse.create(HttpStatus.OK)
+                                        .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                                        .body(records())
+                                        .build());
+                    }
+                    return Mono.just(
+                            ClientResponse.create(HttpStatus.OK)
+                                    .cookie("JSESSIONID", "abc123")
+                                    .cookie("XSRF", "tok")
+                                    .body("")
+                                    .build());
+                };
+        RossStoresScraper s =
+                new RossStoresScraper(WebClient.builder().exchangeFunction(ex), new ObjectMapper());
+        assertThat(s.scrape("rossstores")).hasSize(1);
+    }
+
+    @Test
+    void missingAndUnparseableDatesTreatedAsRecent() {
+        String recs =
+                "{\"Records\":["
+                        + "{\"ID\":\"a\",\"Title\":\"Buyer\",\"ReferenceNumber\":\"RA\","
+                        + "\"PostedDate\":\"\",\"CityStateData\":\"San Jose, CA\"},"
+                        + "{\"ID\":\"b\",\"Title\":\"Planner\",\"ReferenceNumber\":\"RB\","
+                        + "\"PostedDate\":\"not-a-date\",\"CityStateData\":\"Irvine, CA\"}]}";
+        RossStoresScraper s =
+                new RossStoresScraper(
+                        WebClientStubs.text(
+                                u -> u.contains("SearchResults") ? recs : "", "application/json"),
+                        new ObjectMapper());
+        List<JobPosting> jobs = s.scrape("rossstores");
+        assertThat(jobs).hasSize(2);
+        assertThat(jobs.get(0).getPostedDate()).isNull(); // blank date -> null, kept
+        assertThat(jobs.get(1).getPostedDate()).isNull(); // bad date -> null, kept
     }
 
     @Test
