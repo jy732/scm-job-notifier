@@ -6,8 +6,13 @@ import com.github.jingyangyu.scmjobnotifier.config.WorkdayProperties;
 import com.github.jingyangyu.scmjobnotifier.config.WorkdayProperties.WorkdayCompany;
 import com.github.jingyangyu.scmjobnotifier.model.JobPosting;
 import com.github.jingyangyu.scmjobnotifier.support.WebClientStubs;
+import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.reactive.function.client.WebClient;
 
 class WorkdayScraperTest {
 
@@ -167,6 +172,88 @@ class WorkdayScraperTest {
         new WorkdayScraper(WebClientStubs.json(u -> "null"), props())
                 .fetchDescriptions(List.of(c)); // detail null -> ""
         assertThat(c.getDescription()).isEmpty();
+    }
+
+    @Test
+    void nullResponseBreaksPagination() {
+        WorkdayScraper s = new WorkdayScraper(WebClientStubs.json(u -> "null"), props());
+        assertThat(s.scrape("iherb")).isEmpty();
+    }
+
+    @Test
+    void emptyPostingsBreaksPagination() {
+        String body = "{\"total\":5,\"facets\":[],\"jobPostings\":[]}";
+        WorkdayScraper s = new WorkdayScraper(WebClientStubs.json(u -> body), props());
+        assertThat(s.scrape("iherb")).isEmpty();
+    }
+
+    @Test
+    void scrapeReturnsPartialOnError() {
+        WorkdayScraper s = new WorkdayScraper(WebClientStubs.erroring(), props());
+        assertThat(s.scrape("iherb")).isEmpty();
+    }
+
+    @Test
+    void unknownPostedOnFormatTreatedAsRecent() {
+        String body =
+                "{\"total\":1,\"facets\":[],\"jobPostings\":[{\"title\":\"Buyer\","
+                        + "\"externalPath\":\"/job/X/B_1\",\"locationsText\":\"San Jose, CA\","
+                        + "\"postedOn\":\"Posted recently\"}]}";
+        WorkdayScraper s = new WorkdayScraper(WebClientStubs.json(u -> body), props());
+        assertThat(s.scrape("iherb")).hasSize(1);
+    }
+
+    // A stub whose first N POSTs return the CA-facet body (main scrape page), and later POSTs
+    // (the CA-facet re-fetch) return a different body — lets us drive fetchCaExternalPaths edges.
+    private static WebClient.Builder facetThen(String reFetchBody) {
+        AtomicInteger n = new AtomicInteger();
+        return WebClientStubs.json(u -> n.getAndIncrement() == 0 ? FACET_BODY : reFetchBody);
+    }
+
+    @Test
+    void caFacetRefetchNullResponseLeavesUntagged() {
+        WorkdayScraper s = new WorkdayScraper(facetThen("null"), props());
+        List<JobPosting> jobs = s.scrape("iherb");
+        assertThat(jobs).hasSize(1);
+        assertThat(jobs.get(0).getLocation()).doesNotContain("California");
+    }
+
+    @Test
+    void caFacetRefetchEmptyPostingsLeavesUntagged() {
+        WorkdayScraper s =
+                new WorkdayScraper(facetThen("{\"total\":9,\"jobPostings\":[]}"), props());
+        assertThat(s.scrape("iherb").get(0).getLocation()).doesNotContain("California");
+    }
+
+    @Test
+    void caFacetTaggingCatchesRefetchError() {
+        AtomicInteger n = new AtomicInteger();
+        WebClient.Builder b =
+                WebClientStubs.json(
+                        u -> {
+                            if (n.getAndIncrement() == 0) return FACET_BODY;
+                            throw new RuntimeException("re-fetch boom");
+                        });
+        WorkdayScraper s = new WorkdayScraper(b, props());
+        // exception during facet tagging is swallowed — scrape still returns the job
+        assertThat(s.scrape("iherb")).hasSize(1);
+    }
+
+    @Test
+    void locationFromPathHandlesNull() throws Exception {
+        Method m = WorkdayScraper.class.getDeclaredMethod("locationFromPath", String.class);
+        m.setAccessible(true);
+        assertThat((String) m.invoke(null, (Object) null)).isEmpty();
+    }
+
+    @Test
+    void collectCaFacetIdsHandlesNullNodes() throws Exception {
+        Method m =
+                WorkdayScraper.class.getDeclaredMethod("collectCaFacetIds", List.class, Map.class);
+        m.setAccessible(true);
+        Map<String, List<String>> out = new HashMap<>();
+        m.invoke(null, null, out); // null nodes -> early return, no throw
+        assertThat(out).isEmpty();
     }
 
     @Test
