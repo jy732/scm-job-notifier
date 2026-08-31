@@ -50,4 +50,33 @@ class ByteDanceScraperTest {
                                 .scrape("bytedance"))
                 .isEmpty();
     }
+
+    @Test
+    void tiktokPortalSetsWebsitePathHeader() {
+        // tiktok portal has a non-null websitePath -> the website-path header branch runs
+        assertThat(scraper(OK).scrape("tiktok")).hasSize(1);
+    }
+
+    @Test
+    void nullResponseBreaks() {
+        ByteDanceScraper s = new ByteDanceScraper(WebClientStubs.noBody(), new ObjectMapper());
+        assertThat(s.scrape("bytedance")).isEmpty();
+    }
+
+    @Test
+    void emptyJobListBreaks() {
+        assertThat(
+                        scraper("{\"code\":0,\"data\":{\"count\":0,\"job_post_list\":[]}}")
+                                .scrape("bytedance"))
+                .isEmpty();
+    }
+
+    @Test
+    void singleCityInfoLocation() {
+        String body =
+                "{\"code\":0,\"data\":{\"count\":1,\"job_post_list\":[{\"id\":\"t1\","
+                        + "\"title\":\"Buyer\",\"city_info\":{\"en_name\":\"Los Angeles\"},"
+                        + "\"description\":\"<p>d</p>\"}]}}";
+        assertThat(scraper(body).scrape("tiktok").get(0).getLocation()).contains("Los Angeles");
+    }
 }

@@ -42,4 +42,13 @@ public final class WebClientStubs {
         ExchangeFunction ex = req -> Mono.error(new RuntimeException("stub network error"));
         return WebClient.builder().exchangeFunction(ex);
     }
+
+    /**
+     * Builder whose exchanges return a 200 with <b>no body</b> — {@code bodyToMono(...)} completes
+     * empty so {@code .block()} returns {@code null} (exercises scraper response==null branches).
+     */
+    public static WebClient.Builder noBody() {
+        ExchangeFunction ex = req -> Mono.just(ClientResponse.create(HttpStatus.OK).build());
+        return WebClient.builder().exchangeFunction(ex);
+    }
 }

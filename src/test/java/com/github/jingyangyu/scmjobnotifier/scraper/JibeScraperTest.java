@@ -66,4 +66,40 @@ class JibeScraperTest {
         assertThat(new JibeScraper(WebClientStubs.erroring(), new ObjectMapper()).scrape("amd"))
                 .isEmpty();
     }
+
+    @Test
+    void nullResponseReturnsZero() {
+        JibeScraper s = new JibeScraper(WebClientStubs.noBody(), new ObjectMapper());
+        assertThat(s.scrape("amd")).isEmpty();
+    }
+
+    @Test
+    void skipsJobWithoutIdAndBlankPostedDate() {
+        String page =
+                "{\"jobs\":[{\"data\":{\"title\":\"No Id\",\"full_location\":\"San Jose, CA\"}},"
+                        + "{\"data\":{\"slug\":\"88\",\"title\":\"Buyer\","
+                        + "\"full_location\":\"San Jose, CA\",\"apply_url\":\"https://x/88\","
+                        + "\"posted_date\":\"\"}}]}";
+        List<JobPosting> jobs = scraper(page).scrape("amd");
+        assertThat(jobs).hasSize(1); // id-less job skipped
+        assertThat(jobs.get(0).getPostedDate()).isNull(); // blank date -> null
+    }
+
+    @Test
+    void fullPageWithNoNewIdsStopsPagination() {
+        // a full page (PAGE_SIZE=100) whose ids repeat every page -> "no new ids" break
+        StringBuilder sb = new StringBuilder("{\"jobs\":[");
+        for (int i = 0; i < 100; i++) {
+            if (i > 0) sb.append(",");
+            sb.append("{\"data\":{\"slug\":\"j")
+                    .append(i)
+                    .append(
+                            "\",\"title\":\"Buyer\",\"full_location\":\"San Jose, CA\","
+                                    + "\"apply_url\":\"https://x/")
+                    .append(i)
+                    .append("\"}}");
+        }
+        sb.append("]}");
+        assertThat(scraper(sb.toString()).scrape("amd")).hasSize(100);
+    }
 }

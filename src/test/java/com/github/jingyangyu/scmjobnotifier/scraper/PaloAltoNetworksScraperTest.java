@@ -47,4 +47,27 @@ class PaloAltoNetworksScraperTest {
                 new PaloAltoNetworksScraper(WebClientStubs.text(u -> "<html></html>", "text/html"));
         assertThat(s.scrape("paloaltonetworks")).isEmpty();
     }
+
+    @Test
+    void companiesReturnsPanw() {
+        assertThat(
+                        new PaloAltoNetworksScraper(WebClientStubs.text(u -> CARD, "text/html"))
+                                .companies())
+                .containsExactly("paloaltonetworks");
+    }
+
+    @Test
+    void queryFailureIsCaughtPerQuery() {
+        assertThat(
+                        new PaloAltoNetworksScraper(WebClientStubs.erroring())
+                                .scrape("paloaltonetworks"))
+                .isEmpty();
+    }
+
+    @Test
+    void nullHtmlBreaksPagination() {
+        // no body -> bodyToMono(String) completes empty -> html null -> break
+        PaloAltoNetworksScraper s = new PaloAltoNetworksScraper(WebClientStubs.noBody());
+        assertThat(s.scrape("paloaltonetworks")).isEmpty();
+    }
 }

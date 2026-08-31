@@ -47,4 +47,16 @@ class EightfoldScraperTest {
     void unknownCompanyEmpty() {
         assertThat(scraper().scrape("nope")).isEmpty();
     }
+
+    @Test
+    void queryFailureIsCaughtPerQuery() {
+        EightfoldScraper s = new EightfoldScraper(WebClientStubs.erroring(), new ObjectMapper());
+        assertThat(s.scrape("lamresearch")).isEmpty();
+    }
+
+    @Test
+    void nullResponseBreaksPagination() {
+        EightfoldScraper s = new EightfoldScraper(WebClientStubs.noBody(), new ObjectMapper());
+        assertThat(s.scrape("lamresearch")).isEmpty();
+    }
 }

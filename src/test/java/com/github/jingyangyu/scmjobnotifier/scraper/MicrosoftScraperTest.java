@@ -43,4 +43,32 @@ class MicrosoftScraperTest {
                 new MicrosoftScraper(WebClientStubs.json(u -> "{\"data\":{\"positions\":[]}}"));
         assertThat(s.scrape("microsoft")).isEmpty();
     }
+
+    @Test
+    void companiesReturnsMicrosoft() {
+        assertThat(new MicrosoftScraper(WebClientStubs.json(u -> POS)).companies())
+                .containsExactly("microsoft");
+    }
+
+    @Test
+    void queryFailureIsCaughtPerQuery() {
+        assertThat(new MicrosoftScraper(WebClientStubs.erroring()).scrape("microsoft")).isEmpty();
+    }
+
+    @Test
+    void postedTimestampParsedToInstant() {
+        String pos =
+                "{\"data\":{\"positions\":[{\"displayJobId\":\"m2\",\"name\":\"Buyer\","
+                        + "\"positionUrl\":\"https://x/m2\","
+                        + "\"standardizedLocations\":[\"San Jose, CA\"],"
+                        + "\"postedTs\":1690000000}]}}";
+        MicrosoftScraper s =
+                new MicrosoftScraper(
+                        WebClientStubs.json(
+                                u ->
+                                        u.contains("start=0")
+                                                ? pos
+                                                : "{\"data\":{\"positions\":[]}}"));
+        assertThat(s.scrape("microsoft").get(0).getPostedDate()).isNotNull();
+    }
 }
