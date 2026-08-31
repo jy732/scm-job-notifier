@@ -52,4 +52,86 @@ class PaylocityScraperTest {
         assertThat(j.getTitle()).isEqualTo("Buyer");
         assertThat(j.getLocation()).contains("San Jose").contains("CA");
     }
+
+    private static List<JobPosting> scrapeHtml(String html) {
+        return new PaylocityScraper(WebClientStubs.text(u -> html, "text/html"), props())
+                .scrape("baycitiescontainer");
+    }
+
+    @Test
+    void unknownCompanyReturnsEmpty() {
+        PaylocityScraper s =
+                new PaylocityScraper(WebClientStubs.text(u -> HTML, "text/html"), props());
+        assertThat(s.scrape("nope")).isEmpty();
+    }
+
+    @Test
+    void noJobsKeyReturnsEmpty() {
+        assertThat(scrapeHtml("<html>no data here</html>")).isEmpty();
+    }
+
+    @Test
+    void nullBodyReturnsEmpty() {
+        assertThat(scrapeHtml("")).isEmpty(); // empty body -> fetch returns null -> null html
+    }
+
+    @Test
+    void noBracketAfterKeyReturnsEmpty() {
+        assertThat(scrapeHtml("<script>var x={\"Jobs\": 5};</script>")).isEmpty();
+    }
+
+    @Test
+    void unbalancedArrayReturnsEmpty() {
+        assertThat(scrapeHtml("<script>{\"Jobs\":[ {\"JobId\":1,\"JobTitle\":\"X\"}</script>"))
+                .isEmpty();
+    }
+
+    @Test
+    void recordMissingTitleOrIdIsSkipped() {
+        String html =
+                "<script>{\"Jobs\":[{\"JobId\":20,\"JobTitle\":\"Keep Me\",\"City\":\"San Jose\","
+                        + "\"State\":\"CA\"},{\"JobTitle\":\"Drop Me\",\"City\":\"SF\","
+                        + "\"State\":\"CA\"}]}</script>";
+        List<JobPosting> jobs = scrapeHtml(html);
+        assertThat(jobs).hasSize(1); // second record (no JobId) skipped
+        assertThat(jobs.get(0).getTitle()).isEqualTo("Keep Me");
+    }
+
+    @Test
+    void extractJobsArrayHandlesNullHtml() throws Exception {
+        java.lang.reflect.Method m =
+                PaylocityScraper.class.getDeclaredMethod("extractJobsArray", String.class);
+        m.setAccessible(true);
+        assertThat(m.invoke(null, (Object) null)).isNull();
+    }
+
+    @Test
+    void stateOnlyLocationAndMissingPublishedDate() {
+        String html =
+                "<script>{\"Jobs\":[{\"JobId\":11,\"JobTitle\":\"Planner\","
+                        + "\"State\":\"CA\"}]}</script>";
+        List<JobPosting> jobs = scrapeHtml(html);
+        assertThat(jobs).hasSize(1);
+        assertThat(jobs.get(0).getLocation()).isEqualTo("CA"); // city empty -> state only
+        assertThat(jobs.get(0).getPostedDate()).isNull(); // no PublishedDate
+    }
+
+    @Test
+    void offsetDateTimeIsParsed() {
+        String html =
+                "<script>{\"Jobs\":[{\"JobId\":12,\"JobTitle\":\"Buyer\",\"City\":\"San Jose\","
+                        + "\"State\":\"CA\",\"PublishedDate\":\"2026-08-01T00:00:00-07:00\"}]}"
+                        + "</script>";
+        assertThat(scrapeHtml(html).get(0).getPostedDate()).isNotNull();
+    }
+
+    @Test
+    void unescapeHandlesSlashCarriageReturnAndUnknownEscape() {
+        String html =
+                "<script>{\"Jobs\":[{\"JobId\":13,"
+                        + "\"JobTitle\":\"Buyer \\/ Planner \\r X \\q Y\","
+                        + "\"City\":\"San Jose\",\"State\":\"CA\"}]}</script>";
+        String title = scrapeHtml(html).get(0).getTitle();
+        assertThat(title).contains("/").contains("q"); // \/ -> '/', \q -> 'q'
+    }
 }
