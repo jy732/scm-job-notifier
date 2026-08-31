@@ -260,7 +260,12 @@ public class JobPollingService {
         int persisted = persistJobs(unseen, geminiFailed, levelMap);
 
         List<JobPosting> allApproved =
-                unseen.stream().filter(j -> NOTIFIABLE.contains(levelMap.get(j))).toList();
+                unseen.stream()
+                        .filter(
+                                j ->
+                                        levelMap.get(j) != null
+                                                && NOTIFIABLE.contains(levelMap.get(j)))
+                        .toList();
 
         int localCount = result.stage1Count() + result.stage2Count();
         log.info(
