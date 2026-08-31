@@ -161,6 +161,29 @@
                             <goal>report</goal>
                         </goals>
                     </execution>
+                    <!-- Coverage floor: 100% LINE across all non-excluded (unit-testable) code.
+                         Fails `mvn verify` if any line regresses, so the 100% is durable. -->
+                    <execution>
+                        <id>check-line-coverage</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>1.00</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
         </plugins>
