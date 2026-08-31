@@ -135,14 +135,17 @@
                          browser bean factory, the browser-driving scrapers (real Chrome), and the
                          Bright Data Web Unlocker scraper. Their pure parse logic IS tested
                          separately (e.g. TeslaStateParserTest). -->
+                    <!-- Wildcards cover nested/anonymous classes (e.g. $HttpMethod, TypeReference
+                         $1). MetaScraper is WebClient-based and unit-tested; the rest drive a real
+                         browser via Playwright (Apple/Google/Tesla/BrassRing) and can't be unit
+                         tested offline. TeslaScraper's pure state parser is tested separately. -->
                     <excludes>
                         <exclude>**/ScmJobNotifierApplication.class</exclude>
-                        <exclude>**/config/PlaywrightConfig.class</exclude>
-                        <exclude>**/scraper/AppleScraper.class</exclude>
-                        <exclude>**/scraper/GoogleScraper.class</exclude>
-                        <exclude>**/scraper/MetaScraper.class</exclude>
-                        <exclude>**/scraper/BrassRingScraper.class</exclude>
-                        <exclude>**/scraper/TeslaScraper.class</exclude>
+                        <exclude>**/config/PlaywrightConfig*.class</exclude>
+                        <exclude>**/scraper/AppleScraper*.class</exclude>
+                        <exclude>**/scraper/GoogleScraper*.class</exclude>
+                        <exclude>**/scraper/BrassRingScraper*.class</exclude>
+                        <exclude>**/scraper/TeslaScraper*.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>
