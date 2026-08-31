@@ -191,4 +191,101 @@ class ScrapeTestControllerTest {
         assertThat(c.locationAudit().block()).isNotNull();
         assertThat(c.filterAudit(null, null).block()).isNotNull();
     }
+
+    private static JobScraper scraperOf(String platform, String company, List<JobPosting> jobs) {
+        return new JobScraper() {
+            @Override
+            public String platform() {
+                return platform;
+            }
+
+            @Override
+            public List<String> companies() {
+                return List.of(company);
+            }
+
+            @Override
+            public List<JobPosting> scrape(String c) {
+                return jobs;
+            }
+        };
+    }
+
+    private static JobPosting bare(String title, String loc, String company) {
+        return JobPosting.builder()
+                .company(company)
+                .externalId(title + loc)
+                .title(title)
+                .location(loc)
+                .detectedAt(Instant.now())
+                .build();
+    }
+
+    @Test
+    void locationAuditFlagsBlankAndZeroCaSignatures() {
+        List<JobPosting> mostlyBlank = new java.util.ArrayList<>();
+        for (int i = 0; i < 20; i++) {
+            mostlyBlank.add(bare("Buyer " + i, "", null)); // blank loc + null company
+        }
+        List<JobPosting> zeroCa = new java.util.ArrayList<>();
+        for (int i = 0; i < 20; i++) {
+            zeroCa.add(bare("Buyer " + i, "Austin, TX", "acme")); // non-blank, 0 CA
+        }
+        ScrapeTestController c =
+                new ScrapeTestController(
+                        List.of(
+                                scraperOf("gha", "ca", mostlyBlank),
+                                scraperOf("ghb", "cb", zeroCa)),
+                        poll,
+                        email,
+                        new JobTitleFilter(90));
+        Map<String, Object> r = c.locationAudit().block();
+        assertThat(r).containsKey("parseLikelyBroken").containsKey("zeroCaWorthChecking");
+        assertThat(r.get("parseLikelyBroken").toString()).contains("blank locations");
+        assertThat(r.get("zeroCaWorthChecking").toString()).contains("0 CA");
+    }
+
+    @Test
+    void filterAuditDropsNonScmAndPlatformFilterSkips() {
+        JobScraper s =
+                scraperOf(
+                        "greenhouse",
+                        "acme",
+                        List.of(
+                                bare("Registered Nurse", "San Jose, CA", null), // NON_SCM + null co
+                                jp("Supply Chain Analyst", "San Jose, CA", null))); // PASSED
+        ScrapeTestController c =
+                new ScrapeTestController(List.of(s), poll, email, new JobTitleFilter(90));
+        Map<String, Object> all = c.filterAudit(null, null).block();
+        assertThat(all.get("byDisposition").toString()).contains("DROPPED_NON_SCM");
+        // platform filter that matches nothing -> the scraper is skipped
+        Map<String, Object> none = c.filterAudit("nomatch", null).block();
+        assertThat(none).containsEntry("totalJobs", 0);
+    }
+
+    @Test
+    void locationAuditReturnsErrorWhenCsvUnwritable() throws Exception {
+        java.nio.file.Path dir = java.nio.file.Path.of("location-audit.csv");
+        java.nio.file.Files.deleteIfExists(dir);
+        java.nio.file.Files.createDirectory(dir); // a dir can't be opened as a file
+        try {
+            Map<String, Object> r = controller.locationAudit().block();
+            assertThat(r).containsKey("error");
+        } finally {
+            java.nio.file.Files.delete(dir);
+        }
+    }
+
+    @Test
+    void filterAuditReturnsErrorWhenCsvUnwritable() throws Exception {
+        java.nio.file.Path dir = java.nio.file.Path.of("filter-audit.csv");
+        java.nio.file.Files.deleteIfExists(dir);
+        java.nio.file.Files.createDirectory(dir);
+        try {
+            Map<String, Object> r = controller.filterAudit(null, null).block();
+            assertThat(r).containsKey("error");
+        } finally {
+            java.nio.file.Files.delete(dir);
+        }
+    }
 }
