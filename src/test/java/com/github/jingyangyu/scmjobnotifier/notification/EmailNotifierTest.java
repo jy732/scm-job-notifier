@@ -104,4 +104,105 @@ class EmailNotifierTest {
         assertThat(notifier.sendNewJobAlert(jobs)).isTrue();
         assertThat(notifier.sendDailySummary(jobs)).isTrue();
     }
+
+    @Test
+    void dailySummaryNotConfiguredReturnsFalse() {
+        EmailNotifier n = new EmailNotifier(sender, "", "from@x.com");
+        assertThat(n.sendDailySummary(List.of(job()))).isFalse();
+    }
+
+    @Test
+    void dailySummaryEmptyJobsIsSuccess() {
+        assertThat(notifier.sendDailySummary(List.of())).isTrue();
+    }
+
+    @Test
+    void testAlertBlankAddressReturnsFalse() {
+        assertThat(notifier.sendTestAlert(List.of(job()), "")).isFalse();
+        assertThat(notifier.sendTestAlert(List.of(job()), null)).isFalse();
+    }
+
+    @Test
+    void announcementBlankAddressReturnsFalse() {
+        assertThat(notifier.sendAnnouncement("s", "<p>h</p>", "")).isFalse();
+        assertThat(notifier.sendAnnouncement("s", "<p>h</p>", null)).isFalse();
+    }
+
+    @Test
+    void sendFailuresAcrossAllEntryPointsReturnFalse() {
+        org.mockito.Mockito.doThrow(new org.springframework.mail.MailSendException("smtp down"))
+                .when(sender)
+                .send(any(MimeMessage.class));
+        assertThat(notifier.sendDailySummary(List.of(job()))).isFalse();
+        assertThat(notifier.sendTestAlert(List.of(job()), "t@x.com")).isFalse();
+        assertThat(notifier.sendAnnouncement("s", "<p>h</p>", "t@x.com")).isFalse();
+    }
+
+    @Test
+    void labelAndLocationHelpersCoverAllBranches() {
+        JobPosting nullLevel =
+                JobPosting.builder()
+                        .company("c")
+                        .externalId("nl")
+                        .title("T")
+                        .url("https://x")
+                        .location("San Jose, CA")
+                        .level(null)
+                        .detectedAt(Instant.now())
+                        .build();
+        JobPosting nullLoc =
+                JobPosting.builder()
+                        .company("c")
+                        .externalId("nloc")
+                        .title("T")
+                        .url("https://x")
+                        .location(null)
+                        .level("ENTRY_LEVEL")
+                        .detectedAt(Instant.now())
+                        .build();
+        JobPosting remote =
+                JobPosting.builder()
+                        .company("c")
+                        .externalId("rem")
+                        .title("T")
+                        .url("https://x")
+                        .location("Remote, CA")
+                        .level("ENTRY_LEVEL")
+                        .detectedAt(Instant.now())
+                        .build();
+        JobPosting otherMetro =
+                JobPosting.builder()
+                        .company("c")
+                        .externalId("sd")
+                        .title("T")
+                        .url("https://x")
+                        .location("San Diego, CA")
+                        .level("ENTRY_LEVEL")
+                        .detectedAt(Instant.now())
+                        .build();
+        JobPosting nullUrl =
+                JobPosting.builder()
+                        .company("c")
+                        .externalId("nu")
+                        .title("T")
+                        .url(null)
+                        .location("San Jose, CA")
+                        .level("ENTRY_LEVEL")
+                        .detectedAt(Instant.now())
+                        .build();
+        assertThat(
+                        notifier.sendNewJobAlert(
+                                List.of(nullLevel, nullLoc, remote, otherMetro, nullUrl)))
+                .isTrue();
+    }
+
+    @Test
+    void buildBodyRendersIntroWhenProvided() throws Exception {
+        java.lang.reflect.Method m =
+                EmailNotifier.class.getDeclaredMethod(
+                        "buildBody", List.class, String.class, String.class);
+        m.setAccessible(true);
+        String body = (String) m.invoke(notifier, List.of(job()), "<h1>H</h1>", "<p>intro</p>");
+        assertThat(body).contains("<p>intro</p>");
+    }
 }
