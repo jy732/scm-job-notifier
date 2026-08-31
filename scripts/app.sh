@@ -32,6 +32,15 @@ start() {
   # Copy to a stable path so a future rebuild can't corrupt this running JVM's jar.
   mkdir -p "$(dirname "$RUN_JAR")"
   cp -f "$BUILD_JAR" "$RUN_JAR" || { echo "✗ could not stage $RUN_JAR"; return 1; }
+  # Load .env so config (GEMINI_API_KEY, EMAIL_*, ADZUNA_*, NOTIFICATION_EMAIL…) is present
+  # regardless of the launching shell — otherwise a bare/cron/launchd context starts the app
+  # with keys unset (e.g. "GEMINI API KEY NOT CONFIGURED"). .env is gitignored; never commit it.
+  if [ -f .env ]; then
+    set -a; . ./.env; set +a
+    echo "loaded .env ($(grep -cE '^\s*(export\s+)?[A-Za-z_][A-Za-z0-9_]*=' .env) vars)"
+  else
+    echo "⚠ no .env found — app will start with keys unset (Gemini/email/Adzuna disabled)"
+  fi
   nohup java -jar "$RUN_JAR" > "$LOG" 2>&1 &
   echo "starting (pid $!) → log: $LOG"
   for _ in $(seq 1 90); do
