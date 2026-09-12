@@ -57,8 +57,8 @@ public class IcimsScraper implements JobScraper {
                     Pattern.DOTALL);
 
     /**
-     * iCIMS location shape {@code US-CA-San Diego}; normalized to {@code San Diego, CA}. The optional
-     * trailing {@code , ST} absorbs the redundant suffix iCIMS sometimes appends ({@code
+     * iCIMS location shape {@code US-CA-San Diego}; normalized to {@code San Diego, CA}. The
+     * optional trailing {@code , ST} absorbs the redundant suffix iCIMS sometimes appends ({@code
      * US-CA-San Bernadino, CA}) so we don't double it.
      */
     private static final Pattern US_LOCATION =
@@ -174,10 +174,11 @@ public class IcimsScraper implements JobScraper {
     /**
      * Cleans an iCIMS location value: unescapes entities, collapses whitespace, and normalizes each
      * segment. Multi-location postings arrive as a {@code |}-separated blend of bare cities and raw
-     * {@code US-ST-City} fragments (often duplicated, with {@code &nbsp;}), e.g. {@code "Columbus&nbsp;
-     * | US-OH-West Columbus | US-OH-West Columbus | US-OH-Dublin, OH"}. We turn each into {@code City,
-     * ST}, drop duplicates, and rejoin — "Columbus | West Columbus, OH | Dublin, OH". The state token
-     * is preserved so the California filter still matches CA cities not in its explicit list.
+     * {@code US-ST-City} fragments (often duplicated, with {@code &nbsp;}), e.g. {@code
+     * "Columbus&nbsp; | US-OH-West Columbus | US-OH-West Columbus | US-OH-Dublin, OH"}. We turn
+     * each into {@code City, ST}, drop duplicates, and rejoin — "Columbus | West Columbus, OH |
+     * Dublin, OH". The state token is preserved so the California filter still matches CA cities
+     * not in its explicit list.
      */
     private static String normalizeLocation(String raw) {
         String cleaned = unescape(raw).replaceAll("\\s+", " ").replaceAll("\\s+,", ",").trim();

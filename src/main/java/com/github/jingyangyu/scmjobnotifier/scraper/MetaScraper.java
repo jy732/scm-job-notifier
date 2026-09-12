@@ -193,7 +193,9 @@ public class MetaScraper implements JobScraper {
                                         .header("Accept", "*/*"));
 
         if (body == null || !body.stripLeading().startsWith("{")) {
-            log.warn("Meta: non-JSON GraphQL response for query '{}' (blocked/rate-limited?)", query);
+            log.warn(
+                    "Meta: non-JSON GraphQL response for query '{}' (blocked/rate-limited?)",
+                    query);
             return;
         }
         Map<String, Object> response =
@@ -218,9 +220,10 @@ public class MetaScraper implements JobScraper {
 
     /**
      * Issues one request carrying the current cookie jar, merges any {@code Set-Cookie} from the
-     * response back into the jar, and returns the body as a String <em>regardless of status code</em>
-     * (Meta serves the real page under a 429, and the datr-less 400 error page still needs reading
-     * so token extraction can fail gracefully). Returns an empty string on transport failure.
+     * response back into the jar, and returns the body as a String <em>regardless of status
+     * code</em> (Meta serves the real page under a 429, and the datr-less 400 error page still
+     * needs reading so token extraction can fail gracefully). Returns an empty string on transport
+     * failure.
      */
     private String exchangeForBody(
             HttpMethod method,

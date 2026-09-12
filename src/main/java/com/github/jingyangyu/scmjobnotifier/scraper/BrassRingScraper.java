@@ -32,8 +32,8 @@ import tools.jackson.databind.ObjectMapper;
  * {@code PowerSearchJobs} JSON response</b> the app fires (rather than scraping fragile DOM tiles).
  * The response is {@code {Jobs:{Job:[...]}}}, where each job carries a {@code Questions} array of
  * {@code {QuestionName, Value}} pairs ({@code reqid}, {@code jobtitle}, {@code jobdescription}, and
- * tenant-specific {@code formtext*} location fields) plus a {@code Link}. Results across queries are
- * de-duplicated by req id; descriptions come inline (single-phase).
+ * tenant-specific {@code formtext*} location fields) plus a {@code Link}. Results across queries
+ * are de-duplicated by req id; descriptions come inline (single-phase).
  */
 @Slf4j
 @Component
@@ -91,8 +91,10 @@ public class BrassRingScraper implements JobScraper {
         }
         Map<String, JobPosting> byId = new LinkedHashMap<>();
         // Playwright's Connection is NOT thread-safe and this Browser bean is shared with the Apple
-        // and Tesla scrapers; the poll runs companies on an 8-thread pool, so concurrent use corrupts
-        // the driver ("Object doesn't exist: tracing@…" / "Cannot find object __adopt__"). Serialize
+        // and Tesla scrapers; the poll runs companies on an 8-thread pool, so concurrent use
+        // corrupts
+        // the driver ("Object doesn't exist: tracing@…" / "Cannot find object __adopt__").
+        // Serialize
         // all Playwright work on the shared browser (the same singleton bean is used as the monitor
         // in AppleScraper/TeslaScraper too).
         synchronized (browser) {
@@ -134,7 +136,8 @@ public class BrassRingScraper implements JobScraper {
                         .setWaitUntil(WaitUntilState.NETWORKIDLE)
                         .setTimeout(30000));
         // A privacy/cookie consent modal (ngDialog) overlays the page and intercepts pointer events
-        // (clicks on the search box time out). Accept it if there's an agree button, then remove any
+        // (clicks on the search box time out). Accept it if there's an agree button, then remove
+        // any
         // residual overlay so interactions land.
         try {
             page.click(
@@ -159,7 +162,8 @@ public class BrassRingScraper implements JobScraper {
         } catch (RuntimeException ignore) {
             // already open, or a layout without the reveal link
         }
-        // Wait for the power-search keyword input to render, then click to focus and type the query.
+        // Wait for the power-search keyword input to render, then click to focus and type the
+        // query.
         try {
             page.waitForSelector(
                     KEYWORD_WIDGET,
@@ -181,7 +185,8 @@ public class BrassRingScraper implements JobScraper {
         page.click(KEYWORD_WIDGET);
         page.keyboard().type(query);
 
-        // Capture every Search/Ajax response the submit triggers so a 0-job run reveals exactly which
+        // Capture every Search/Ajax response the submit triggers so a 0-job run reveals exactly
+        // which
         // endpoint (if any) the search fired; parse the job-results payload and log the rest.
         List<Response> captured = new CopyOnWriteArrayList<>();
         Consumer<Response> listener =
@@ -207,7 +212,8 @@ public class BrassRingScraper implements JobScraper {
                     || ep.equals("MatchedJobs")) {
                 String body = safeText(r);
                 if (sample.isEmpty() && !body.isEmpty()) {
-                    sample = body.substring(0, Math.min(140, body.length())).replaceAll("\\s+", " ");
+                    sample =
+                            body.substring(0, Math.min(140, body.length())).replaceAll("\\s+", " ");
                 }
                 parseJobs(body, cfg, byId);
                 parsed = true;
@@ -240,8 +246,8 @@ public class BrassRingScraper implements JobScraper {
 
     /**
      * Submits the keyword search by clicking the power-search button ({@code
-     * ng-click="powerSearchJobs(this)"} → the {@code PowerSearchJobs} results call), falling back to
-     * Enter if the button isn't present.
+     * ng-click="powerSearchJobs(this)"} → the {@code PowerSearchJobs} results call), falling back
+     * to Enter if the button isn't present.
      */
     private void submitSearch(Page page) {
         try {
@@ -289,7 +295,9 @@ public class BrassRingScraper implements JobScraper {
         return List.of();
     }
 
-    /** Flattens a job's {@code Questions} array into an ordered {@code QuestionName -> Value} map. */
+    /**
+     * Flattens a job's {@code Questions} array into an ordered {@code QuestionName -> Value} map.
+     */
     @SuppressWarnings("unchecked")
     private static Map<String, String> questions(Map<String, Object> job) {
         Map<String, String> out = new LinkedHashMap<>();

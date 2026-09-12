@@ -40,7 +40,8 @@ public class PaylocityScraper implements JobScraper {
     private static final Pattern JOB_ID = Pattern.compile("\"JobId\"\\s*:\\s*(\\d+)");
     private static final Pattern JOB_TITLE =
             Pattern.compile("\"JobTitle\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"");
-    private static final Pattern PUBLISHED = Pattern.compile("\"PublishedDate\"\\s*:\\s*\"([^\"]*)\"");
+    private static final Pattern PUBLISHED =
+            Pattern.compile("\"PublishedDate\"\\s*:\\s*\"([^\"]*)\"");
     private static final Pattern CITY = Pattern.compile("\"City\"\\s*:\\s*\"([^\"]*)\"");
     private static final Pattern STATE = Pattern.compile("\"State\"\\s*:\\s*\"([^\"]*)\"");
 
@@ -108,7 +109,10 @@ public class PaylocityScraper implements JobScraper {
         }
     }
 
-    /** Combines the record's {@code JobLocation.City/State} into the "City, ST" form the filter wants. */
+    /**
+     * Combines the record's {@code JobLocation.City/State} into the "City, ST" form the filter
+     * wants.
+     */
     private static String location(String record) {
         String city = group(CITY, record);
         String state = group(STATE, record);
@@ -137,8 +141,9 @@ public class PaylocityScraper implements JobScraper {
     }
 
     /**
-     * Extracts the {@code "Jobs":[...]} array from the board HTML, balancing brackets while ignoring
-     * any inside JSON string literals (so a "]" in a title/description doesn't end the array early).
+     * Extracts the {@code "Jobs":[...]} array from the board HTML, balancing brackets while
+     * ignoring any inside JSON string literals (so a "]" in a title/description doesn't end the
+     * array early).
      */
     private static String extractJobsArray(String html) {
         if (html == null) {
@@ -179,7 +184,9 @@ public class PaylocityScraper implements JobScraper {
         return null;
     }
 
-    /** Splits a JSON array string into its top-level {@code {...}} object substrings (string-aware). */
+    /**
+     * Splits a JSON array string into its top-level {@code {...}} object substrings (string-aware).
+     */
     private static List<String> splitObjects(String array) {
         List<String> out = new ArrayList<>();
         int depth = 0;

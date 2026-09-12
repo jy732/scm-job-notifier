@@ -10,8 +10,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * <p>Some ATSes (Meta Careers, Kenexa BrassRing) aggressively block datacenter/repeat IPs with a
  * 400/429 error page — see the notes in {@code docs/adzuna-migration-audit.md}. Pointing this at a
  * residential/rotating HTTP proxy routes the WebClient- and Playwright-based scrapers around the
- * block. Disabled (direct connection) unless {@code job.proxy.enabled=true} and a host is set, so it
- * is a no-op in environments that aren't blocked.
+ * block. Disabled (direct connection) unless {@code job.proxy.enabled=true} and a host is set, so
+ * it is a no-op in environments that aren't blocked.
  */
 @ConfigurationProperties(prefix = "job.proxy")
 @Getter

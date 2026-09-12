@@ -436,7 +436,8 @@ public class EmailNotifier {
                     helper.setText(htmlBody, true);
                     // Inline the mascot the body references — cid:hellokitty for alerts,
                     // cid:hellokittyreport for the 24h summary, cid:hellokittyannounce for
-                    // announcements. Must be added AFTER setText. Best-effort — a missing image just
+                    // announcements. Must be added AFTER setText. Best-effort — a missing image
+                    // just
                     // leaves the alt text. (Check the longer cids first: "cid:hellokitty" is a
                     // substring of both "cid:hellokittyreport" and "cid:hellokittyannounce".)
                     if (htmlBody.contains("cid:hellokittyreport")) {

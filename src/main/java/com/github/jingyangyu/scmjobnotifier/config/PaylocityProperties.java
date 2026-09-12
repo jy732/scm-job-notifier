@@ -35,7 +35,9 @@ public class PaylocityProperties {
         /** The opaque company GUID in the board URL (unguessable — found via WebSearch). */
         private String companyId;
 
-        /** The URL slug segment (e.g. "ONeill-Vintners-and-Distillers"); cosmetic, aids the job URL. */
+        /**
+         * The URL slug segment (e.g. "ONeill-Vintners-and-Distillers"); cosmetic, aids the job URL.
+         */
         private String slug;
 
         /** The board URL whose server-rendered HTML embeds the {@code "Jobs":[...]} JSON array. */

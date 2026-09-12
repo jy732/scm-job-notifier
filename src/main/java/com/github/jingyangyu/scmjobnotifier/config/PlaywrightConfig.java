@@ -17,9 +17,9 @@ import org.springframework.context.annotation.Configuration;
  * <p>The browser is created once at startup and shared across all Playwright-based scrapers. Each
  * scraper creates its own {@link com.microsoft.playwright.BrowserContext} for isolation. Chromium
  * is auto-installed by Playwright on first run. Launched with {@code
- * --disable-blink-features=AutomationControlled} (hides the {@code navigator.webdriver} flag anti-bot
- * checks look for) and, when {@link ProxyProperties} is configured, routed through the proxy so
- * scrapers work from egress IPs their targets would otherwise block.
+ * --disable-blink-features=AutomationControlled} (hides the {@code navigator.webdriver} flag
+ * anti-bot checks look for) and, when {@link ProxyProperties} is configured, routed through the
+ * proxy so scrapers work from egress IPs their targets would otherwise block.
  */
 @Slf4j
 @Configuration
