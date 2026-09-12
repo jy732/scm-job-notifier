@@ -13,9 +13,10 @@ SCM track ENTRY_LEVEL / INTERNSHIP / UNSURE), **location** (US → California on
 > 📨 **Receiving the alert emails and not an engineer?** See the plain-language guide:
 > [中文使用说明 (Chinese guide for email recipients)](README.zh-CN.md).
 
-**Status:** implemented, building, and verified end-to-end. A full poll runs all 126 companies (122
-config-driven across 8 ATS platforms + 4 bespoke) in ~6 min, plus an **Adzuna aggregator source**
-that nets long-tail CA-SCM roles at employers not directly monitored.
+**Status:** implemented, building, and verified end-to-end. A full poll runs all ~201 companies (187
+config-driven across 10 ATS platforms + ~14 bespoke/other-ATS targets) in ~10 min, plus an **Adzuna aggregator source**
+that nets long-tail CA-SCM roles at employers not directly monitored, and a weekly **JSearch
+discovery** pass that surfaces new SCM-heavy employers to migrate into direct scrapers.
 
 ---
 
@@ -24,9 +25,10 @@ that nets long-tail CA-SCM roles at employers not directly monitored.
 A single Spring Boot process runs four scheduled jobs against a file-based H2 database. The main poll
 cycle:
 
-1. **Scrape** — every 15 min, polls 122 config-driven companies (8 ATS platforms) plus 4 bespoke
-   single-company scrapers (Amazon, Microsoft, Apple, Tesla) using an 8-thread pool (3-min
-   per-company timeout). **Greenhouse and Workday** fetch metadata only and defer descriptions to post-dedup;
+1. **Scrape** — every 15 min, polls 187 config-driven companies (10 ATS platforms) plus ~14
+   bespoke/other-ATS targets (Amazon, Apple, Microsoft, Tesla, Google, ByteDance, Eightfold, Jibe, …)
+   using a 12-thread pool (3-min per-company timeout). **Greenhouse and Workday** fetch metadata only
+   and defer descriptions to post-dedup;
    **Lever / Ashby / SmartRecruiters / OracleCloud** bundle descriptions into the list response (no
    lighter metadata-only call exists for them).
 2. **Pre-filter** — drops stale postings, non-California locations, non-SCM titles, and
@@ -148,30 +150,33 @@ The daily 8 AM summary uses the same layout.
 
 ## Supported Platforms & Companies
 
-122 config-driven companies across 8 ATS platforms (all verified against the live ATS API as of Aug
-2026), plus 4 bespoke single-company scrapers.
+187 config-driven companies across 10 ATS platforms (all verified against the live ATS API when added),
+plus ~14 bespoke / other-ATS targets (see [below](#bespoke--other-ats-scrapers-14-targets)).
 
-**Bold** = surfaced ≥1 notifiable (entry-level / internship / unsure) CA SCM role in the Aug 2026 test
-polls; the rest scrape clean but haven't produced a matching opening yet. The trailing Workday block
-(abbott…bluediamond) came from **role-first discovery** — see below.
+**Bold** = surfaced ≥1 notifiable (entry-level / internship / unsure) CA SCM role in a test poll at the
+time it was added; the rest scrape clean but haven't produced a matching opening yet (new additions are
+listed unbolded until they yield). Most additions past the original brand list came from **role-first
+discovery** (Adzuna, then JSearch) — see below.
 
 | Platform | Method | Count | Companies |
 |----------|--------|-------|-----------|
-| **Workday** | CXS JSON API | 68 | nvidia, intel, cisco, broadcom, **appliedmaterials**, **marvell**, **kla**, edwards, gilead, amgen, illumina, dexcom, resmed, stryker, genentech, chipotle, clorox, **niagara**, chevron (+ university site), sunrun, **bloomenergy**, levistrauss, deckers, **skechers**, **northropgrumman**, **johnsonjohnson**, **target**, mondelez, caterpillar, proctergamble, pfizer, cocacola, nissan, conagra, generalmills, kimberlyclark, walmart, toyota, pepsico, **rtx**, hp, **bd**, pwc, bakertilly, trimble, chrobinson, abbott, **thermofisher**, **motorolasolutions**, **avantor**, **teledyne**, bluediamond, worldmarket, saks, veralto, **hyve**, gap, dupont, cardinalhealth, **sysco**, **usfoods**, ingrammicro, cadence, **specialized**, **boeing**, accenture, shoepalace |
-| **Greenhouse** | Boards JSON API | 26 | **flexport**, lucidmotors, nuro, samsara, **doordashusa**, instacart, **waymo**, **andurilindustries**, **spacex**, uberfreight, **aloyoga**, **carvana**, **shein**, **rocketlab**, **relativity**, **figureai**, **nerostechnologies**, leolabsinc, **flyzipline**, **vast**, **harbingermotors**, skyryse, sambanovasystems, revolutionmedicines, **purestorage**, **fashionnova** |
-| **Lever** | Postings JSON API | 8 | **zoox**, veeva, aeratechnology, velo3d, **penumbrainc**, **ambirobotics**, **orcabiosystems**, gopuff |
-| **Ashby** | Posting JSON API | 8 | openai, snowflake, **1x**, **mach**, **gritt**, **northwoodspace**, **crusoe**, plasmidsaurus |
-| **SmartRecruiters** | Postings JSON API | 5 | **WesternDigital**, AbbVie, MattelInc, **Intuitive**, **TheWonderfulCompany** |
-| **OracleCloud** | Recruiting REST API | 4 | fortinet, honeywell, oracle, albertsons |
-| **SuccessFactors** | CSB tile-search HTML | 1 | sap |
-| **iCIMS** | legacy fragment HTML | 2 | **ait**, nikkiso |
+| **Workday** | CXS JSON API | 96 | nvidia, intel, cisco, broadcom, **appliedmaterials**, **marvell**, **kla**, edwards, gilead, amgen, illumina, dexcom, resmed, stryker, genentech, chipotle, clorox, **niagara**, chevron (+ university site), sunrun, **bloomenergy**, levistrauss, deckers, **skechers**, **northropgrumman**, **johnsonjohnson**, **target**, mondelez, caterpillar, proctergamble, pfizer, cocacola, nissan, conagra, generalmills, kimberlyclark, walmart, toyota, pepsico, **rtx**, hp, **bd**, pwc, bakertilly, trimble, chrobinson, abbott, **thermofisher**, **motorolasolutions**, **avantor**, **teledyne**, bluediamond, worldmarket, saks, veralto, **hyve**, gap, dupont, cardinalhealth, **sysco**, **usfoods**, ingrammicro, cadence, **specialized**, **boeing**, accenture, shoepalace, moog, airgas, peets, safelite, legends, stanfordhealthcare, hdsupply, huntsman, lennar, rosendin, universalmusic, solarturbines, pcipharma, altamed, ryder, novartis, backroads, flex, logitech, micron, nxp, iherb, cellink, anheuserbusch, iqvia, adobe, danaher, nextracker |
+| **Greenhouse** | Boards JSON API | 39 | **flexport**, lucidmotors, nuro, samsara, **doordashusa**, instacart, **waymo**, **andurilindustries**, **spacex**, uberfreight, **aloyoga**, **carvana**, **shein**, **rocketlab**, **relativity**, **figureai**, **nerostechnologies**, leolabsinc, **flyzipline**, **vast**, **harbingermotors**, skyryse, sambanovasystems, revolutionmedicines, **purestorage**, **fashionnova**, nordicnaturals, vardaspace, wing, oura, sharpelectronics, smartsheet, stripe, voyagertechnologiesinc, k2spacecorporation, anthropic, gillig, antora, weee |
+| **Lever** | Postings JSON API | 9 | **zoox**, veeva, aeratechnology, velo3d, **penumbrainc**, **ambirobotics**, **orcabiosystems**, gopuff, thrivecausemetics |
+| **Ashby** | Posting JSON API | 13 | openai, snowflake, **1x**, **mach**, **gritt**, **northwoodspace**, **crusoe**, plasmidsaurus, midjourney, nubank, tandempv, xona-space, hadrian-automation |
+| **SmartRecruiters** | Postings JSON API | 8 | **WesternDigital**, AbbVie, MattelInc, **Intuitive**, **TheWonderfulCompany**, RRDonnelley, Sandisk, aristanetworks |
+| **OracleCloud** | Recruiting REST API | 10 | fortinet, honeywell, oracle, albertsons, saic, cedarssinai, ichor, williamssonoma, cohu, dpworld |
+| **SuccessFactors** | CSB tile-search HTML | 3 | sap, supermicro, pge |
+| **iCIMS** | legacy fragment HTML | 6 | **ait**, nikkiso, snapon, yusen, triplessteel, dole |
+| **Paylocity** | Recruiting JSON API | 2 | oneill, baycitiescontainer |
+| **BambooHR** | hosted careers list | 1 | pivotalsys |
 
 > **SuccessFactors note:** SF has no public JSON API (OData is per-tenant OAuth-gated). This adapter
 > scrapes the Career Site Builder `tile-search-results` HTML — tenant-HTML, not a uniform API. It's
-> validated on `jobs.sap.com` (SAP is a CA employer, but its CA roles are dev/enterprise-software, so
-> it yields ~0 CA-SCM and is really a validation tenant). The high-value SF targets (Williams-Sonoma,
-> Ross, Nestlé, Colgate) aren't reachable at their obvious hosts (non-CSB, JS-loaded, or migrated ATS)
-> and need per-tenant onboarding — the adapter exists, but each host must be reverse-engineered.
+> validated on `jobs.sap.com` (SAP's CA roles are dev/enterprise-software, so it's really a validation
+> tenant) and now also runs against `jobs.supermicro.com` and `careers.pge.com`. Each high-value SF
+> target must be reverse-engineered per host — many aren't reachable at their obvious hosts (non-CSB,
+> JS-loaded, or migrated ATS), so onboarding is one tenant at a time.
 
 > **iCIMS note:** unlike swe-job-notifier's Playwright port, this scrapes iCIMS's *legacy* search
 > fragment (`{sub}.icims.com/jobs/search?pr={page}&in_iframe=1`) over plain HTTP — ~50 server-rendered
@@ -212,24 +217,34 @@ Orca Bio, Sysco, US Foods, Cardinal Health, Ingram Micro, Cadence, Pure Storage,
 notifiable from 11 of 18**. Across all discovery, total poll notifiable rose from ~78 → ~151. Winners
 skew to CA-HQ space / robotics / hardware / life-science / food-distribution ops, not tech brands.
 
-### Single-company scrapers (bespoke)
+### Bespoke / other-ATS scrapers (14 targets)
 
-Ported from swe-job-notifier and re-targeted for SCM — each searches supply-chain terms (multi-query,
-de-duplicated), narrowed to CA where the site allows and enforced by the California pre-filter. No
-company list; one scraper per class.
+Beyond the 10 config-driven ATS platforms, a set of per-target scrapers cover big-tech careers APIs
+and a few one-off ATS fragments — each searches supply-chain terms (multi-query, de-duplicated),
+narrowed to CA where the site allows and enforced by the California pre-filter. Status below is from a
+live poll cycle (2026-09-11); "raw → CA-SCM" is scraped count → CA supply-chain-relevant after filters.
 
-| Scraper | Method | Status (Aug 2026) |
-|---------|--------|-------------------|
-| **Amazon** | Jobs search JSON API | ✅ working (~375 raw SCM hits before filtering) |
-| **Microsoft** | PCSX search JSON API | ✅ working — but the search API returns **no description**, so its postings are classified by title (Stage 1) + Gemini (Stage 3) only |
-| **Apple** | Playwright (hydration JSON) | ✅ working (~192 raw hits; descriptions inline) |
-| **Tesla** | Playwright (DOM) | ⚠️ **blocked by Akamai WAF** — headless requests get "Access Denied", so the scraper returns 0 and fails gracefully (no error). Structurally correct; yielding results would need a stealth / residential-proxy setup or Tesla's internal API. |
+| Scraper | Target(s) | Method | Status (2026-09-11 poll) |
+|---------|-----------|--------|--------------------------|
+| **Amazon** | amazon | Jobs search JSON API | ✅ 403 raw → 6 CA-SCM |
+| **Apple** | apple | Playwright (hydration JSON) | ✅ 216 raw → 3 CA-SCM |
+| **Microsoft** | microsoft | PCSX search JSON API | ✅ 26 raw (no description → title+Gemini only) |
+| **Tesla** | tesla | Bright Data Web Unlocker | ✅ **8115 raw → 68 CA-SCM** — Akamai-gated, so routed through the Web Unlocker (`job.tesla.*`, needs `BRIGHTDATA_TOKEN`); returns 0 gracefully if the token is unset |
+| **Google** | google | Playwright | ✅ 120 raw → 3 CA-SCM |
+| **ByteDance** | bytedance, tiktok | Jobs JSON API (7 queries) | ✅ 1039 raw → 19 CA-SCM (all via tiktok) |
+| **Eightfold** | qualcomm, lamresearch | Eightfold API (7 queries) | ✅ 644 raw → 2 CA-SCM |
+| **Jibe** | rivian, amd | Jibe careers API | ✅ 1967 raw → 0 CA-SCM (scrapes clean; no match this cycle) |
+| **PaloAltoNetworks** | paloaltonetworks | Phenom SSR | ✅ 68 raw |
+| **RossStores** | rossstores | whole-board recency scan | ✅ 197 raw → 1 CA-SCM |
+| **Meta** | meta | careers JSON API | ⚠️ **0 raw** — datacenter-IP block; needs the `job.proxy.*` outbound proxy to yield |
+| **BrassRing** | *(none configured)* | Kenexa BrassRing fragment | ⚪ inactive — scraper present, 0 companies wired; also proxy-gated |
 
-Still **deferred** (not yet ported, low SCM yield): Google, Meta, Netflix, TikTok.
+Meta and BrassRing hit datacenter-IP blocks (400/429) and only yield through the optional `job.proxy.*`
+outbound proxy. Everything else runs on a direct connection.
 
 ### Aggregator source (Adzuna) — the long-tail net
 
-The direct scrapers cover ~126 known employers with full metadata and 15-min freshness. **Adzuna**
+The direct scrapers cover ~201 known employers with full metadata and 15-min freshness. **Adzuna**
 (`AdzunaScraper`) complements them by querying the [Adzuna jobs API](https://developer.adzuna.com) for
 `{SCM titles} × California` across *every* board — surfacing roles at the ~450 long-tail employers
 (small/custom ATSs) we can't scrape directly. Same `JobScraper` interface, so it reuses the whole
@@ -255,6 +270,24 @@ employers outside the directly-monitored set._
 > **Playwright note:** Tesla and Apple use a headless Chromium browser (Playwright). This pushes the
 > runnable jar to ~275 MB and downloads Chromium on first run. If you don't need them, removing the
 > `com.microsoft.playwright` dependency + `PlaywrightConfig` + the two scrapers drops the jar to ~75 MB.
+
+### Discovery source (JSearch) — finding new employers to migrate
+
+Adzuna surfaces long-tail roles but excludes anyone already directly scraped, so it can't tell you
+*which new employer to add next*. **JSearch** (`service/discovery/`, Google-for-Jobs via RapidAPI —
+aggregates Indeed/LinkedIn/etc.) fills that gap as a pure **discovery** feed, not a poll source:
+
+- **`JSearchDiscoveryService`** runs weekly (`jsearch.discovery.cron`, default Sun 06:00), fires a set
+  of `{SCM title} × California` queries (`jsearch.discovery.queries`, `;`-delimited) via
+  **`JSearchClient`** (`/search-v2` endpoint), aggregates by employer, filters out staffing agencies
+  and any company already covered by a direct scraper *or* Adzuna, and ranks the net-new employers by
+  SCM-role count — a ready-made migration shortlist.
+- On-demand: `curl -X POST http://localhost:8081/api/discovery/jsearch`.
+- Needs `RAPIDAPI_KEY`; disabled (returns empty) if unset. It **never persists jobs or emails** —
+  output is a report you act on via the `migrate-companies` workflow.
+- **Caveat:** the aggregator samples ~one posting per employer, so JSearch is good at *presence*
+  (who's hiring SCM) but not *volume* — confirm "how heavy" by counting a candidate's own ATS board
+  before wiring up a scraper.
 
 ---
 
@@ -286,8 +319,16 @@ employers outside the directly-monitored set._
 3. Run:
 
    ```bash
-   ./start.sh          # sources .env, then mvn spring-boot:run
+   scripts/app.sh start      # builds the jar, sources .env, launches detached (polling on)
+   scripts/app.sh status     # running? + last poll / email lines
+   scripts/app.sh restart    # rebuild + relaunch (applies latest code/config)
+   scripts/app.sh logs       # tail the live log
+   scripts/app.sh stop
    ```
+
+   `app.sh` launches from a **stable jar copy** in `run/` (not `target/`) so a later `mvn package`
+   can't corrupt the running JVM's jar mid-flight (which otherwise breaks Jakarta Mail's lazy
+   `ServiceLoader` on every send). `./start.sh` (`mvn spring-boot:run`) still works for foreground dev.
 
 Runs on **port 8081** so it can run alongside `swe-job-notifier` (port 8080). Its H2 database lives in
 this project's own `./data/` directory, independent of the SWE app's.
@@ -301,7 +342,15 @@ WebFlux event loop):
 curl -X POST http://localhost:8081/api/test/scrape/greenhouse/spacex   # one company
 curl -X POST http://localhost:8081/api/test/scrape-all                 # every company (counts)
 curl -X POST http://localhost:8081/api/test/poll                       # one full poll cycle
+curl -X POST http://localhost:8081/api/discovery/jsearch               # JSearch discovery report
+curl -X POST 'http://localhost:8081/api/replay/classification'         # re-classify past jobs (dry-run by default)
 ```
+
+`POST /api/replay/classification` (`ClassificationReplayService`) re-runs the classifier over already
+-stored postings and re-queues any that materially upgrade (e.g. a job that was auto-approved UNSURE
+during a Gemini outage and should have been ENTRY_LEVEL) so a miss-sent batch can be recovered without
+a re-scrape. Defaults to `dryRun=true` — pass `dryRun=false` (plus optional `sources`, `since`,
+`until`, `limit`) to actually re-queue for the next alert scan.
 
 ## Scheduled Jobs
 
@@ -311,6 +360,7 @@ curl -X POST http://localhost:8081/api/test/poll                       # one ful
 | **Alert scan** | `job.notification.scan.cron` | every 5 min | email unnotified ENTRY/INTERN/UNSURE jobs |
 | **Daily summary** | `job.summary.cron` | 08:00 | digest of the last 24 h |
 | **Cleanup** | `job.cleanup.cron` | 03:00 | delete jobs older than `job.retention.days` (90) |
+| **JSearch discovery** | `jsearch.discovery.cron` | Sun 06:00 | net-new-employer report (no persist/email) |
 
 To disable a schedule without code changes, set its cron to `-` (Spring's disabled-trigger value);
 the method stays callable via the debug endpoint.
@@ -326,23 +376,36 @@ src/main/java/com/github/jingyangyu/scmjobnotifier/
 │   ├── OracleCloudProperties.java          # OracleCloud company configs
 │   └── IcimsProperties.java                # iCIMS configs (none configured)
 ├── controller/
-│   └── ScrapeTestController.java           # /api/test/{scrape,scrape-all,poll}
+│   ├── ScrapeTestController.java           # /api/test/{scrape,scrape-all,poll}
+│   ├── DiscoveryController.java            # POST /api/discovery/jsearch
+│   └── ClassificationReplayController.java # POST /api/replay/classification
 ├── model/
-│   └── JobPosting.java                     # JPA entity (level = track string)
+│   └── JobPosting.java                     # JPA entity (level = track; classificationSource = origin)
 ├── notification/
 │   └── EmailNotifier.java                  # single-email builder + region (Area) bucketing
 ├── repository/
 │   └── JobPostingRepository.java           # Spring Data JPA (notifiable queries)
 ├── scraper/
 │   ├── JobScraper.java                     # interface (two-phase scrape/fetchDescriptions)
-│   ├── GreenhouseScraper.java  LeverScraper.java  AshbyScraper.java
-│   ├── SmartRecruitersScraper.java  WorkdayScraper.java  OracleCloudScraper.java
+│   │   # config-driven ATS platforms (10):
+│   ├── GreenhouseScraper.java  LeverScraper.java  AshbyScraper.java  SmartRecruitersScraper.java
+│   ├── WorkdayScraper.java  OracleCloudScraper.java  SuccessFactorsScraper.java  IcimsScraper.java
+│   ├── PaylocityScraper.java  BambooHrScraper.java
+│   │   # aggregator + single-company / bespoke:
+│   ├── AdzunaScraper.java                  # aggregator (long-tail net)
+│   ├── AmazonScraper.java  MicrosoftScraper.java  AppleScraper.java  TeslaScraper.java
+│   ├── GoogleScraper.java  MetaScraper.java  ByteDanceScraper.java  PaloAltoNetworksScraper.java
+│   ├── RossStoresScraper.java  BrassRingScraper.java  EightfoldScraper.java  JibeScraper.java
 ├── service/
-│   ├── JobPollingService.java              # 15-min orchestrator (8-thread pool)
+│   ├── JobPollingService.java              # 15-min orchestrator (12-thread pool)
 │   ├── NotificationService.java            # 5-min single-email scan
 │   ├── DailySummaryService.java            # 8 AM digest
 │   ├── JobCleanupService.java              # 90-day retention cleanup
+│   ├── ClassificationReplayService.java    # re-classify + re-queue past miss-sent jobs
 │   ├── PipelineMetrics.java                # Micrometer counters/gauges
+│   ├── discovery/
+│   │   ├── JSearchClient.java              # RapidAPI /search-v2 client
+│   │   └── JSearchDiscoveryService.java    # weekly net-new-employer discovery report
 │   └── classification/
 │       ├── ClassificationPipeline.java     # 3-stage orchestrator
 │       ├── FilterKeywords.java             # exclude / entry / SCM / CA keyword sets + patterns
@@ -387,6 +450,8 @@ All settings live in `src/main/resources/application.properties`:
 | `job.workday.companies[n].*` / `job.oraclecloud.companies[n].*` / `job.icims.companies[n].*` | populated | indexed ATS configs |
 | `job.adzuna.enabled` / `app-id` / `app-key` | `true` / `${ADZUNA_APP_ID:}` / `${ADZUNA_APP_KEY:}` | Adzuna aggregator source (off if keys blank) |
 | `job.adzuna.throttle-minutes` / `max-days-old` / `pages` | `240` / `30` / `1` | Adzuna cadence + query window |
+| `jsearch.api.key` | `${RAPIDAPI_KEY:}` | JSearch discovery (off/empty if unset) |
+| `jsearch.discovery.cron` / `jsearch.discovery.queries` | `0 0 6 * * SUN` / 10 `{SCM title} × CA` phrases | discovery schedule + `;`-delimited query list |
 
 ## Tech Stack
 
