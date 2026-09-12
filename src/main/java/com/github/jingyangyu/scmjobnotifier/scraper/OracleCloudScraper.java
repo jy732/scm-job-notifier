@@ -33,7 +33,9 @@ public class OracleCloudScraper implements JobScraper {
      * Albertsons ~7k reqs) would otherwise page forever; the per-company poll timeout would cut it
      * off mid-scrape anyway. Bounds the scrape to {@value} × {@link #PAGE_SIZE} newest-listed reqs.
      */
-    private static final int MAX_PAGES = 80;
+    // 200 pages x 25 = 5000-job ceiling. Was 80 (2000), which silently truncated big tenants
+    // (albertsons ~7k jobs pinned at exactly 2000). Cap-truncation is now logged (see paginate).
+    private static final int MAX_PAGES = 200;
 
     /** SCM keyword queries for {@code keywordFiltered} tenants (union de-duplicated by req id). */
     private static final List<String> SCM_QUERIES =
@@ -128,31 +130,58 @@ public class OracleCloudScraper implements JobScraper {
             String keyword,
             Map<String, JobPosting> byId) {
         int offset = 0;
+        int total = 0;
+        int fetched = 0;
+        int pages = 0;
+        boolean capped = true; // stays true only if the loop exhausts MAX_PAGES with jobs remaining
         for (int page = 0; page < MAX_PAGES; page++) {
+            pages++;
             Map<String, Object> response = fetchPage(config, offset, keyword);
             if (response == null) {
+                capped = false;
                 break;
             }
             List<Map<String, Object>> items =
                     (List<Map<String, Object>>)
                             response.getOrDefault("items", Collections.emptyList());
             if (items.isEmpty()) {
+                capped = false;
                 break;
             }
             // The first item contains requisitionList and TotalJobsCount
             Map<String, Object> wrapper = items.get(0);
-            int totalJobs = ((Number) wrapper.getOrDefault("TotalJobsCount", 0)).intValue();
+            total = ((Number) wrapper.getOrDefault("TotalJobsCount", 0)).intValue();
             List<Map<String, Object>> requisitions =
                     (List<Map<String, Object>>)
                             wrapper.getOrDefault("requisitionList", Collections.emptyList());
             for (Map<String, Object> req : requisitions) {
                 JobPosting posting = toJobPosting(company, config, req);
                 byId.putIfAbsent(posting.getExternalId(), posting);
+                fetched++;
             }
             offset += PAGE_SIZE;
-            if (offset >= totalJobs || requisitions.isEmpty()) {
+            if (offset >= total || requisitions.isEmpty()) {
+                capped = false;
                 break;
             }
+        }
+        String scope = keyword == null ? "(all)" : "'" + keyword + "'";
+        log.info(
+                "Oracle Cloud [{}] {}: fetched {} of {} over {} page(s)",
+                company,
+                scope,
+                fetched,
+                total,
+                pages);
+        if (capped) {
+            log.warn(
+                    "Oracle Cloud [{}] {}: TRUNCATED at page cap — fetched {} of {} ({} pages);"
+                            + " raise MAX_PAGES or narrow the query",
+                    company,
+                    scope,
+                    fetched,
+                    total,
+                    MAX_PAGES);
         }
     }
 

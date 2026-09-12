@@ -54,9 +54,12 @@ public class SmartRecruitersScraper implements JobScraper {
     public List<JobPosting> scrape(String company) {
         List<JobPosting> allJobs = new ArrayList<>();
         int offset = 0;
+        int total = 0;
+        int pages = 0;
 
         try {
             while (true) {
+                pages++;
                 String url =
                         String.format(
                                 "https://api.smartrecruiters.com/v1/companies/%s/postings"
@@ -75,7 +78,7 @@ public class SmartRecruitersScraper implements JobScraper {
                     break;
                 }
 
-                int totalFound = ((Number) response.getOrDefault("totalFound", 0)).intValue();
+                total = ((Number) response.getOrDefault("totalFound", 0)).intValue();
                 List<Map<String, Object>> content =
                         (List<Map<String, Object>>)
                                 response.getOrDefault("content", Collections.emptyList());
@@ -85,10 +88,17 @@ public class SmartRecruitersScraper implements JobScraper {
                 }
 
                 offset += PAGE_SIZE;
-                if (offset >= totalFound || content.isEmpty()) break;
+                if (offset >= total || content.isEmpty()) break;
             }
 
-            log.info("SmartRecruiters [{}]: scraped {} total job(s)", company, allJobs.size());
+            // No page cap here (paginates to totalFound); a kept < total gap means the 3-min
+            // company timeout cancelled pagination mid-way (see JobPollingService.awaitResult).
+            log.info(
+                    "SmartRecruiters [{}]: scraped {} of {} total over {} page(s)",
+                    company,
+                    allJobs.size(),
+                    total,
+                    pages);
             return allJobs;
         } catch (Exception e) {
             log.error("Failed to scrape SmartRecruiters for company: {}", company, e);

@@ -267,4 +267,15 @@ class WorkdayScraperTest {
         new WorkdayScraper(WebClientStubs.erroring(), props()).fetchDescriptions(List.of(err));
         assertThat(err.getDescription()).isEmpty(); // exception -> ""
     }
+
+    @Test
+    void capTruncationWhenRecentZoneExceedsMaxPages() {
+        // huge total + a recent posting every page -> loop exhausts MAX_PAGES(200) -> capped WARN
+        String body =
+                "{\"total\":999999,\"facets\":[],\"jobPostings\":[{\"title\":\"Buyer\","
+                        + "\"externalPath\":\"/job/X/B_1\",\"locationsText\":\"San Jose, CA\","
+                        + "\"postedOn\":\"Posted Today\"}]}";
+        WorkdayScraper s = new WorkdayScraper(WebClientStubs.json(u -> body), props());
+        assertThat(s.scrape("iherb")).hasSize(200); // one recent job per page, MAX_PAGES pages
+    }
 }

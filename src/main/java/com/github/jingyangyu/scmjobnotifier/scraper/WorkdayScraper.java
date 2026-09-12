@@ -50,16 +50,16 @@ public class WorkdayScraper implements JobScraper {
     private static final Pattern POSTED_DAYS = Pattern.compile("(\\d+)");
 
     /**
-     * Matches a California location-facet descriptor — e.g. {@code "US - CA, Sunnyvale"}, {@code "US
-     * - Remote, CA"}, {@code "San Francisco Bay Area, CA"}, {@code "California"}. Used to pick a
-     * tenant's CA location facet(s) so multi-location postings (whose {@code locationsText} is only a
-     * count) are recognized as California.
+     * Matches a California location-facet descriptor — e.g. {@code "US - CA, Sunnyvale"}, {@code
+     * "US - Remote, CA"}, {@code "San Francisco Bay Area, CA"}, {@code "California"}. Used to pick
+     * a tenant's CA location facet(s) so multi-location postings (whose {@code locationsText} is
+     * only a count) are recognized as California.
      */
     private static final Pattern CA_FACET = Pattern.compile("(?i)[,\\-]\\s*ca\\b|\\bcalifornia\\b");
 
     /**
-     * Whether a job's location text already reads as California (mirrors the pipeline's
-     * California check), so we don't redundantly append "· California" to jobs that already qualify.
+     * Whether a job's location text already reads as California (mirrors the pipeline's California
+     * check), so we don't redundantly append "· California" to jobs that already qualify.
      */
     private static final Pattern LOC_HAS_CA =
             Pattern.compile("(?i)(?:^|[,\\s/\\-])ca\\b|\\bcalifornia\\b");
@@ -125,13 +125,18 @@ public class WorkdayScraper implements JobScraper {
         // capture it once and never overwrite with 0 — otherwise the loop stops after page 2 (40
         // jobs). We also stop when a page returns no postings, with a MAX_PAGES safety cap.
         int total = 0;
-        // Facets come back on the first page; captured for the CA multi-location tagging pass below.
+        // Facets come back on the first page; captured for the CA multi-location tagging pass
+        // below.
         Object firstFacets = null;
 
+        int pages = 0;
+        boolean capped = true; // stays true only if the loop exhausts MAX_PAGES mid-recent-zone
         try {
             for (int page = 0; page < MAX_PAGES; page++) {
+                pages++;
                 Map<String, Object> response = fetchPage(config, offset);
                 if (response == null) {
+                    capped = false;
                     break;
                 }
                 if (page == 0) {
@@ -148,6 +153,7 @@ public class WorkdayScraper implements JobScraper {
                         (List<Map<String, Object>>)
                                 response.getOrDefault("jobPostings", Collections.emptyList());
                 if (postings.isEmpty()) {
+                    capped = false;
                     break;
                 }
 
@@ -165,12 +171,26 @@ public class WorkdayScraper implements JobScraper {
                 // recent
                 // zone (a lone pinned/old job on an otherwise-recent page doesn't stop us).
                 if (recentOnPage == 0 || offset >= total) {
+                    capped = false;
                     break;
                 }
             }
 
             tagCaMultiLocation(config, allJobs, firstFacets);
-            log.info("Workday [{}]: scraped {} total job(s)", company, allJobs.size());
+            log.info(
+                    "Workday [{}]: scraped {} recent of {} total over {} page(s)",
+                    company,
+                    allJobs.size(),
+                    total,
+                    pages);
+            if (capped) {
+                log.warn(
+                        "Workday [{}]: TRUNCATED at page cap — {} pages, board total {};"
+                                + " recent zone exceeds MAX_PAGES",
+                        company,
+                        MAX_PAGES,
+                        total);
+            }
             return allJobs;
         } catch (Exception e) {
             log.error("Failed to scrape Workday for company: {}", company, e);
@@ -204,12 +224,12 @@ public class WorkdayScraper implements JobScraper {
 
     /**
      * Recovers multi-location California postings that the {@code locationsText}/externalPath
-     * heuristics miss. Workday shows a multi-location job as "N Locations" with only the primary city
-     * in the path, so a role in several places including CA slips past the California filter. Here we
-     * ask Workday which recent jobs match the tenant's California <em>location facet</em> — the facet
-     * matches the full underlying location list, not the displayed summary — and tag those jobs'
-     * location as California so they survive the pipeline. No-op when the tenant exposes no CA
-     * location facet, and best-effort (any failure just leaves the jobs untagged).
+     * heuristics miss. Workday shows a multi-location job as "N Locations" with only the primary
+     * city in the path, so a role in several places including CA slips past the California filter.
+     * Here we ask Workday which recent jobs match the tenant's California <em>location facet</em> —
+     * the facet matches the full underlying location list, not the displayed summary — and tag
+     * those jobs' location as California so they survive the pipeline. No-op when the tenant
+     * exposes no CA location facet, and best-effort (any failure just leaves the jobs untagged).
      */
     private void tagCaMultiLocation(WorkdayCompany config, List<JobPosting> jobs, Object facets) {
         try {
@@ -223,9 +243,11 @@ public class WorkdayScraper implements JobScraper {
                 return;
             }
             // One facet param at a time (mixing params ANDs them). Prefer city-level "locations".
-            String param = caFacets.containsKey("locations") ? "locations" : caFacets.keySet().iterator().next();
-            Set<String> caPaths =
-                    fetchCaExternalPaths(config, Map.of(param, caFacets.get(param)));
+            String param =
+                    caFacets.containsKey("locations")
+                            ? "locations"
+                            : caFacets.keySet().iterator().next();
+            Set<String> caPaths = fetchCaExternalPaths(config, Map.of(param, caFacets.get(param)));
             if (caPaths.isEmpty()) {
                 return;
             }
@@ -244,7 +266,8 @@ public class WorkdayScraper implements JobScraper {
                         tagged);
             }
         } catch (Exception e) {
-            log.debug("Workday [{}]: CA-facet tagging skipped: {}", config.getName(), e.getMessage());
+            log.debug(
+                    "Workday [{}]: CA-facet tagging skipped: {}", config.getName(), e.getMessage());
         }
     }
 
@@ -255,8 +278,8 @@ public class WorkdayScraper implements JobScraper {
     }
 
     /**
-     * Walks the (hierarchical) facet tree and collects, per city-level location facet param, the ids
-     * of values whose descriptor names California.
+     * Walks the (hierarchical) facet tree and collects, per city-level location facet param, the
+     * ids of values whose descriptor names California.
      */
     @SuppressWarnings("unchecked")
     private static void collectCaFacetIds(
@@ -329,7 +352,8 @@ public class WorkdayScraper implements JobScraper {
         // Multi-location postings report a useless summary ("2 Locations") instead of a city, which
         // would slip past the California filter. Workday embeds the PRIMARY location in the
         // externalPath (/job/{Location-Slug}/{title}_{id}), so fall back to that when locationsText
-        // isn't a real place — e.g. "/job/Woodland-Hills-California/..." -> "Woodland Hills California".
+        // isn't a real place — e.g. "/job/Woodland-Hills-California/..." -> "Woodland Hills
+        // California".
         if (location.isBlank() || location.matches("(?i)\\d+\\s+locations?")) {
             location = locationFromPath(externalPath);
         }
@@ -353,17 +377,18 @@ public class WorkdayScraper implements JobScraper {
 
     /**
      * Derives a human location from a Workday {@code externalPath} like {@code
-     * /job/Woodland-Hills-California/Analyst--Transportation_UMG-27299} — the second path segment is
-     * the <em>primary</em> location slug (hyphens → spaces). Used as a fallback for multi-location
-     * postings whose {@code locationsText} is only a count ("2 Locations").
+     * /job/Woodland-Hills-California/Analyst--Transportation_UMG-27299} — the second path segment
+     * is the <em>primary</em> location slug (hyphens → spaces). Used as a fallback for
+     * multi-location postings whose {@code locationsText} is only a count ("2 Locations").
      *
-     * <p>Known limitation: this yields only the primary location. A multi-location role whose primary
-     * is out-of-state but whose secondary is California is still dropped by the CA filter — the full
-     * location list lives only on the per-job detail endpoint (deferred to avoid HTTP 429). Slug
-     * state encoding also varies by tenant ({@code ...-California} vs {@code US-CA-City}); the former
-     * matches on "california", the latter relies on the CA-cities list.
+     * <p>Known limitation: this yields only the primary location. A multi-location role whose
+     * primary is out-of-state but whose secondary is California is still dropped by the CA filter —
+     * the full location list lives only on the per-job detail endpoint (deferred to avoid HTTP
+     * 429). Slug state encoding also varies by tenant ({@code ...-California} vs {@code
+     * US-CA-City}); the former matches on "california", the latter relies on the CA-cities list.
      *
-     * @return the primary location, or "" if the path isn't the expected {@code /job/<loc>/...} shape
+     * @return the primary location, or "" if the path isn't the expected {@code /job/<loc>/...}
+     *     shape
      */
     private static String locationFromPath(String externalPath) {
         if (externalPath == null) {

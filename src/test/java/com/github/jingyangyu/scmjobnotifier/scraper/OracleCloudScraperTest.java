@@ -135,4 +135,15 @@ class OracleCloudScraperTest {
         // every SCM query returns the same requisition → deduped to one by Id
         assertThat(s.scrape("albertsons")).hasSize(1);
     }
+
+    @Test
+    void capTruncationWhenBoardExceedsMaxPages() {
+        // huge TotalJobsCount + a non-empty page every call -> loop exhausts MAX_PAGES -> WARN
+        String page =
+                "{\"items\":[{\"TotalJobsCount\":999999,\"requisitionList\":[{\"Id\":\"R1\","
+                        + "\"Title\":\"Buyer\",\"PrimaryLocation\":\"San Jose, CA\","
+                        + "\"PostedDate\":\"2026-09-01\"}]}]}";
+        OracleCloudScraper s = new OracleCloudScraper(WebClientStubs.json(u -> page), props());
+        assertThat(s.scrape("cohu")).hasSize(1); // paginates to the cap, dedups to one
+    }
 }
