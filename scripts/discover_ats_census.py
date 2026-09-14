@@ -108,35 +108,69 @@ def _keep(t):
     return True
 
 
-def enum_cc(domain, token_re, pages):
-    """Enumerate company tokens for a path-based ATS from the Common Crawl index."""
-    idx = json.load(urlopen(CC_COLLINFO, 30))[0]["cdx-api"]
-    toks = {}
-    for pg in range(pages):
-        url = f"{idx}?url={domain}/*&output=json&fl=url&limit=20000&page={pg}"
-        try:
-            data = urlopen(url, 90).read().decode("utf-8", "replace")
-        except Exception as e:
-            print(f"  (CC page {pg} stopped: {e})", file=sys.stderr)
-            break
-        for line in data.splitlines():
-            m = re.search(token_re, line)
-            if m and _keep(m.group(1)):
-                toks.setdefault(m.group(1).lower(), m.group(1))  # dedupe by lower, keep first-seen case
-    return toks  # {lower: original-case}
-
-
-def enum_wayback(domain, token_re, limit=200000):
-    """Alternate free enumerator (Internet Archive CDX) — independent of Common Crawl, so it's the
-    fallback when CC rate-limits our IP. Pulls all archived URLs under the ATS domain, collapsed by
-    urlkey, and extracts the company token."""
-    url = f"http://web.archive.org/cdx/search/cdx?url={domain}/*&fl=original&collapse=urlkey&limit={limit}"
-    toks = {}
-    data = urlopen(url, 180).read().decode("utf-8", "replace")
+def _harvest(data, token_re, toks):
     for line in data.splitlines():
         m = re.search(token_re, line)
         if m and _keep(m.group(1)):
-            toks.setdefault(m.group(1).lower(), m.group(1))
+            toks.setdefault(m.group(1).lower(), m.group(1))  # dedupe by lower, keep first-seen case
+
+
+def enum_cc(domain, token_re, pages, n_indexes=1):
+    """Enumerate tokens from Common Crawl. Unions across the N most recent monthly indexes — each is
+    a separate crawl that caught different boards — paginating each until it 400s (out of pages)."""
+    try:
+        indexes = [c["cdx-api"] for c in json.load(urlopen(CC_COLLINFO, 30))[:n_indexes]]
+    except Exception as e:
+        print(f"  (CC unreachable: {e}) — skipping CC, relying on other sources", file=sys.stderr)
+        return {}
+    toks = {}
+    for i, idx in enumerate(indexes):
+        got = 0
+        for pg in range(pages):
+            try:
+                data = urlopen(f"{idx}?url={domain}/*&output=json&fl=url&limit=20000&page={pg}", 90).read().decode("utf-8", "replace")
+            except Exception:
+                break  # 400 = out of pages for this index (normal), or a transient stop
+            before = len(toks)
+            _harvest(data, token_re, toks)
+            got += len(toks) - before
+        print(f"  CC index {i+1}/{len(indexes)} ({idx.rsplit('/',1)[-1]}): running total {len(toks)}", file=sys.stderr)
+    return toks
+
+
+def enum_wayback(domain, token_re, page_limit=20000, max_pages=60):
+    """Enumerate tokens from the Internet Archive CDX — independent of Common Crawl. Fully paginated
+    via resumeKey (not a single truncated pull), so it walks the whole archived token space."""
+    import urllib.parse
+
+    base = f"http://web.archive.org/cdx/search/cdx?url={domain}/*&fl=original&collapse=urlkey&limit={page_limit}&showResumeKey=true"
+    toks, resume = {}, None
+    for pg in range(max_pages):
+        url = base + (f"&resumeKey={urllib.parse.quote(resume)}" if resume else "")
+        try:
+            lines = urlopen(url, 180).read().decode("utf-8", "replace").splitlines()
+        except Exception as e:
+            print(f"  (Wayback page {pg} stopped: {e})", file=sys.stderr)
+            break
+        # A trailing "<blank><resumeKey>" marks more pages; strip it before harvesting.
+        resume = None
+        if len(lines) >= 2 and lines[-2] == "" and lines[-1]:
+            resume = lines[-1]
+            lines = lines[:-2]
+        _harvest("\n".join(lines), token_re, toks)
+        if not resume:
+            break
+    return toks
+
+
+def enum_all(domain, token_re, cc_indexes):
+    """Union of both free indexes — the deepest free enumeration. Wayback first (works even when CC
+    throttles us), then union in CC's monthly indexes."""
+    toks = enum_wayback(domain, token_re)
+    print(f"  wayback: {len(toks)} tokens", file=sys.stderr)
+    before = len(toks)
+    toks.update(enum_cc(domain, token_re, pages=4, n_indexes=cc_indexes))
+    print(f"  +CC union: {len(toks) - before} new -> {len(toks)} total", file=sys.stderr)
     return toks
 
 
@@ -185,9 +219,11 @@ ATS = {
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("ats", choices=list(ATS))
-    ap.add_argument("--source", choices=["cc", "wayback"], default="cc",
-                    help="enumeration source (cc=Common Crawl, wayback=Internet Archive fallback)")
-    ap.add_argument("--pages", type=int, default=3, help="Common Crawl pages to pull")
+    ap.add_argument("--source", choices=["cc", "wayback", "all"], default="all",
+                    help="enumeration source: cc=Common Crawl, wayback=Internet Archive (paginated), "
+                         "all=union of both (deepest; default)")
+    ap.add_argument("--pages", type=int, default=4, help="Common Crawl pages per index")
+    ap.add_argument("--cc-indexes", type=int, default=6, help="how many recent CC monthly indexes to union")
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--limit-probe", type=int, default=0, help="cap boards probed (0=all)")
     a = ap.parse_args()
@@ -196,8 +232,10 @@ def main():
     print(f"[1/3] enumerating {a.ats} via {a.source}…", file=sys.stderr)
     if a.source == "wayback":
         toks = enum_wayback(spec["domain"], spec["token_re"])
+    elif a.source == "cc":
+        toks = enum_cc(spec["domain"], spec["token_re"], a.pages, a.cc_indexes)
     else:
-        toks = enum_cc(spec["domain"], spec["token_re"], a.pages)  # {lower: original-case}
+        toks = enum_all(spec["domain"], spec["token_re"], a.cc_indexes)
     own, cfg_all = configured_tokens(spec["csv_key"])
     netnew = sorted(orig for low, orig in toks.items() if low not in own and low not in cfg_all)
     print(f"      {len(toks)} distinct tokens, {len(netnew)} net-new (not in config)", file=sys.stderr)
