@@ -52,7 +52,8 @@ class RossStoresScraperTest {
         assertThat(j.getExternalId()).isEqualTo("r1");
         assertThat(j.getTitle()).isEqualTo("Buyer");
         assertThat(j.getLocation()).isEqualTo("San Jose, CA");
-        assertThat(j.getUrl()).contains("REF1");
+        assertThat(j.getUrl())
+                .isEqualTo("https://jobs.rossstores.com/search/jobdetails/buyer/r1");
     }
 
     @Test

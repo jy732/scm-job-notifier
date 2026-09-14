@@ -43,7 +43,11 @@ public class RossStoresScraper implements JobScraper {
     private static final String SEARCH_URL =
             "https://jobs.rossstores.com/Search/SearchResults"
                     + "?keyword=&jtStartIndex=%d&jtPageSize=%d&jtSorting=PostedDate%%20DESC";
-    private static final String JOB_URL = "https://jobs.rossstores.com/job/%s";
+    // Canonical detail URL is /search/jobdetails/{title-slug}/{ID-UUID}. The slug segment is
+    // cosmetic — a wrong/placeholder slug 302-redirects to the canonical keyed by the UUID — but we
+    // build the real slug from the title so the emailed link is clean and matches the sitemap.
+    private static final String JOB_URL = "https://jobs.rossstores.com/search/jobdetails/%s/%s";
+    private static final Pattern NON_SLUG = Pattern.compile("[^a-z0-9]+");
     private static final int PAGE_SIZE = 100;
     private static final int MAX_PAGES = 20;
     private static final int MAX_DAYS_POSTED = 30;
@@ -158,12 +162,13 @@ public class RossStoresScraper implements JobScraper {
     }
 
     private JobPosting toJobPosting(JsonNode r) {
-        String ref = strip(r.path("ReferenceNumber").asString(""));
+        String id = strip(r.path("ID").asString(""));
+        String title = strip(r.path("Title").asString(""));
         return JobPosting.builder()
                 .company("rossstores")
-                .externalId(strip(r.path("ID").asString("")))
-                .title(strip(r.path("Title").asString("")))
-                .url(String.format(JOB_URL, ref))
+                .externalId(id)
+                .title(title)
+                .url(id.isEmpty() ? "" : String.format(JOB_URL, slugify(title), id))
                 .location(strip(r.path("CityStateData").asString("")))
                 .description("")
                 .postedDate(parseDate(strip(r.path("PostedDate").asString(""))))
@@ -174,6 +179,12 @@ public class RossStoresScraper implements JobScraper {
 
     private static String strip(String s) {
         return s == null ? "" : TAGS.matcher(s).replaceAll("").replace("&nbsp;", " ").trim();
+    }
+
+    /** Lowercase, non-alphanumeric runs to a single hyphen, trimmed — matches Ross's URL slugs. */
+    private static String slugify(String title) {
+        String slug = NON_SLUG.matcher(title.toLowerCase(Locale.US)).replaceAll("-");
+        return slug.replaceAll("^-+|-+$", "");
     }
 
     private static int daysAgo(String dateStr) {
