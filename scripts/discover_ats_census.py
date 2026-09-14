@@ -2,16 +2,26 @@
 """Exhaustive, FREE ATS census — the "technographic list" approach without paid tools.
 
 Enumerate (nearly) every company on an ATS, probe each board's public API, and rank the
-net-new ones by California-SCM role count. Free data sources by ATS URL structure:
+net-new ones by California-SCM role count. Enumeration source by ATS URL structure:
 
-  path-based    greenhouse / lever / ashby      -> Common Crawl index (company is in the path)
-  subdomain     workday / icims                 -> crt.sh cert transparency  [not yet wired here]
+  path-based    greenhouse / lever / ashby      -> Common Crawl index, or Wayback CDX (--source)
+  subdomain     workday / icims                 -> NOT CENSUSABLE for free (see below)
 
-This pilot implements GREENHOUSE. The paid tools (BuiltWith/TheirStack) just resell the same
-Common-Crawl / cert-transparency data plus firmographic filters — and we filter straight from the
-live job data instead, so we don't need theirs.
+Only PATH-based ATS are supported, and by design. Subdomain-based ATS (Workday
+{tenant}.wdN.myworkdayjobs.com, iCIMS {sub}.icims.com) can't be exhaustively enumerated for free:
+  - Certificate Transparency (crt.sh/certspotter) only shows the wildcard *.wdN.myworkdayjobs.com
+    and instance hosts (wd1.myworkdayjobs.com) — individual tenants are masked by the wildcard cert.
+  - Common Crawl / Wayback index by URL and order alphabetically, and each tenant has thousands of
+    job-page URLs, so reaching the whole tenant alphabet means paging millions of rows.
+This is the one place paid tools (BuiltWith/TheirStack) genuinely win — they crawl the open web for
+embedded ATS widgets. For Workday/iCIMS discovery use the DORK method instead (discover-ats-dork):
+`site:myworkdayjobs.com {SCM} California` surfaces the specific job URL with tenant+instance+site
+already in it — which is all you need, and no enumeration required.
 
-Usage: discover_ats_census.py greenhouse [--pages N] [--workers N] [--limit-probe N]
+The paid tools also resell the same Common-Crawl / cert-transparency data plus firmographic filters
+— and for path-ATS we filter straight from live job data instead, so we don't need theirs.
+
+Usage: discover_ats_census.py {greenhouse|lever|ashby} [--source cc|wayback] [--workers N] [--limit-probe N]
 """
 import argparse
 import concurrent.futures as cf

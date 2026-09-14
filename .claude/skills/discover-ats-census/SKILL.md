@@ -52,9 +52,16 @@ Verify with the per-board API (list the actual CA-SCM titles), then wire the goo
 
 ## Extending to other ATS
 
-- Lever/Ashby/SmartRecruiters: same Common Crawl enumeration, swap the domain + the per-board API
-  in `discover_ats_census.py` (add an `enum_*`/`probe_*` pair; the file is structured for it).
-- Workday/iCIMS: enumerate via crt.sh; probing needs the CXS site id (Workday) / fragment (iCIMS).
+- Lever/Ashby/SmartRecruiters: same Common Crawl / Wayback enumeration, swap the domain + the
+  per-board API in `discover_ats_census.py` (add an `enum_*`/`probe_*` pair; the file is built for it).
+- **Workday/iCIMS can NOT be censused for free** — verified 2026-09-13. Subdomain-based ATS hide
+  tenants behind wildcard TLS certs (`*.wdN.myworkdayjobs.com`), so Certificate Transparency
+  (crt.sh/certspotter) only returns the wildcard + instance hosts, never `boeing.wd1`. And
+  Common Crawl / Wayback order by URL alphabetically with thousands of pages per tenant, so full
+  enumeration means paging millions of rows. Use **`discover-ats-dork`** for these instead — the
+  dork URL already contains tenant+instance+site. (A broad Workday/iCIMS dork pass on 2026-09-13
+  surfaced only big national cos — Catalent/Leidos/FMC/GD-OTS — with ~0 current CA-SCM; the good
+  ones, guardanthealth/interiorlogicgroup/getty/missionlinen/iehp, came from the earlier dork pass.)
 
 ## Notes
 
