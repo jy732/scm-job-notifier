@@ -116,13 +116,27 @@ def enum_cc(domain, token_re, pages):
     return toks  # {lower: original-case}
 
 
+def enum_wayback(domain, token_re, limit=200000):
+    """Alternate free enumerator (Internet Archive CDX) — independent of Common Crawl, so it's the
+    fallback when CC rate-limits our IP. Pulls all archived URLs under the ATS domain, collapsed by
+    urlkey, and extracts the company token."""
+    url = f"http://web.archive.org/cdx/search/cdx?url={domain}/*&fl=original&collapse=urlkey&limit={limit}"
+    toks = {}
+    data = urlopen(url, 180).read().decode("utf-8", "replace")
+    for line in data.splitlines():
+        m = re.search(token_re, line)
+        if m and _keep(m.group(1)):
+            toks.setdefault(m.group(1).lower(), m.group(1))
+    return toks
+
+
 def _filter(pairs):
     return [(t.strip(), l.strip()) for t, l in pairs if t and SCM.search(t) and CA.search(l or "") and not DROP.search(t)]
 
 
 def probe_gh(tok):
     try:
-        d = json.load(urlopen(f"https://boards-api.greenhouse.io/v1/boards/{tok}/jobs", 12))
+        d = json.load(urlopen(f"https://boards-api.greenhouse.io/v1/boards/{tok}/jobs", 8, retries=0))
     except Exception:
         return tok, None, []
     jobs = d.get("jobs", [])
@@ -131,7 +145,7 @@ def probe_gh(tok):
 
 def probe_lever(tok):
     try:
-        d = json.load(urlopen(f"https://api.lever.co/v0/postings/{tok}?mode=json", 12))
+        d = json.load(urlopen(f"https://api.lever.co/v0/postings/{tok}?mode=json", 8, retries=0))
     except Exception:
         return tok, None, []
     if not isinstance(d, list):
@@ -141,7 +155,7 @@ def probe_lever(tok):
 
 def probe_ashby(tok):
     try:
-        d = json.load(urlopen(f"https://api.ashbyhq.com/posting-api/job-board/{tok}", 12))
+        d = json.load(urlopen(f"https://api.ashbyhq.com/posting-api/job-board/{tok}", 8, retries=0))
     except Exception:
         return tok, None, []
     jobs = d.get("jobs", []) if isinstance(d, dict) else []
@@ -161,14 +175,19 @@ ATS = {
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("ats", choices=list(ATS))
+    ap.add_argument("--source", choices=["cc", "wayback"], default="cc",
+                    help="enumeration source (cc=Common Crawl, wayback=Internet Archive fallback)")
     ap.add_argument("--pages", type=int, default=3, help="Common Crawl pages to pull")
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--limit-probe", type=int, default=0, help="cap boards probed (0=all)")
     a = ap.parse_args()
     spec = ATS[a.ats]
 
-    print(f"[1/3] enumerating {a.ats} via Common Crawl ({a.pages} page(s))…", file=sys.stderr)
-    toks = enum_cc(spec["domain"], spec["token_re"], a.pages)  # {lower: original-case}
+    print(f"[1/3] enumerating {a.ats} via {a.source}…", file=sys.stderr)
+    if a.source == "wayback":
+        toks = enum_wayback(spec["domain"], spec["token_re"])
+    else:
+        toks = enum_cc(spec["domain"], spec["token_re"], a.pages)  # {lower: original-case}
     own, cfg_all = configured_tokens(spec["csv_key"])
     netnew = sorted(orig for low, orig in toks.items() if low not in own and low not in cfg_all)
     print(f"      {len(toks)} distinct tokens, {len(netnew)} net-new (not in config)", file=sys.stderr)
