@@ -13,10 +13,11 @@ SCM track ENTRY_LEVEL / INTERNSHIP / UNSURE), **location** (US → California on
 > 📨 **Receiving the alert emails and not an engineer?** See the plain-language guide:
 > [中文使用说明 (Chinese guide for email recipients)](README.zh-CN.md).
 
-**Status:** implemented, building, and verified end-to-end. A full poll runs all ~201 companies (187
+**Status:** implemented, building, and verified end-to-end. A full poll runs all ~273 companies (259
 config-driven across 10 ATS platforms + ~14 bespoke/other-ATS targets) in ~10 min, plus an **Adzuna aggregator source**
-that nets long-tail CA-SCM roles at employers not directly monitored, and a weekly **JSearch
-discovery** pass that surfaces new SCM-heavy employers to migrate into direct scrapers.
+that nets long-tail CA-SCM roles at employers not directly monitored. The roster is grown by a
+built-in **discovery engine** (JSearch + ATS-dork + ATS-census) — see [ATS-native
+discovery](#ats-native-discovery--the-core-enrichment-engine).
 
 ---
 
@@ -25,7 +26,7 @@ discovery** pass that surfaces new SCM-heavy employers to migrate into direct sc
 A single Spring Boot process runs four scheduled jobs against a file-based H2 database. The main poll
 cycle:
 
-1. **Scrape** — every 15 min, polls 187 config-driven companies (10 ATS platforms) plus ~14
+1. **Scrape** — every 15 min, polls 259 config-driven companies (10 ATS platforms) plus ~14
    bespoke/other-ATS targets (Amazon, Apple, Microsoft, Tesla, Google, ByteDance, Eightfold, Jibe, …)
    using a 12-thread pool (3-min per-company timeout). **Greenhouse and Workday** fetch metadata only
    and defer descriptions to post-dedup;
@@ -150,24 +151,24 @@ The daily 8 AM summary uses the same layout.
 
 ## Supported Platforms & Companies
 
-187 config-driven companies across 10 ATS platforms (all verified against the live ATS API when added),
+259 config-driven companies across 10 ATS platforms (all verified against the live ATS API when added),
 plus ~14 bespoke / other-ATS targets (see [below](#bespoke--other-ats-scrapers-14-targets)).
 
-**Bold** = surfaced ≥1 notifiable (entry-level / internship / unsure) CA SCM role in a test poll at the
-time it was added; the rest scrape clean but haven't produced a matching opening yet (new additions are
-listed unbolded until they yield). Most additions past the original brand list came from **role-first
-discovery** (Adzuna, then JSearch) — see below.
+Counts below are current; the **company lists are representative, not exhaustive** — the
+[discovery engine](#ats-native-discovery--the-core-enrichment-engine) adds employers regularly, so
+`src/main/resources/application.properties` is the live source of truth. **Bold** = surfaced ≥1
+notifiable CA-SCM role in a test poll when added; the rest scrape clean but haven't yet.
 
-| Platform | Method | Count | Companies |
-|----------|--------|-------|-----------|
-| **Workday** | CXS JSON API | 96 | nvidia, intel, cisco, broadcom, **appliedmaterials**, **marvell**, **kla**, edwards, gilead, amgen, illumina, dexcom, resmed, stryker, genentech, chipotle, clorox, **niagara**, chevron (+ university site), sunrun, **bloomenergy**, levistrauss, deckers, **skechers**, **northropgrumman**, **johnsonjohnson**, **target**, mondelez, caterpillar, proctergamble, pfizer, cocacola, nissan, conagra, generalmills, kimberlyclark, walmart, toyota, pepsico, **rtx**, hp, **bd**, pwc, bakertilly, trimble, chrobinson, abbott, **thermofisher**, **motorolasolutions**, **avantor**, **teledyne**, bluediamond, worldmarket, saks, veralto, **hyve**, gap, dupont, cardinalhealth, **sysco**, **usfoods**, ingrammicro, cadence, **specialized**, **boeing**, accenture, shoepalace, moog, airgas, peets, safelite, legends, stanfordhealthcare, hdsupply, huntsman, lennar, rosendin, universalmusic, solarturbines, pcipharma, altamed, ryder, novartis, backroads, flex, logitech, micron, nxp, iherb, cellink, anheuserbusch, iqvia, adobe, danaher, nextracker |
-| **Greenhouse** | Boards JSON API | 39 | **flexport**, lucidmotors, nuro, samsara, **doordashusa**, instacart, **waymo**, **andurilindustries**, **spacex**, uberfreight, **aloyoga**, **carvana**, **shein**, **rocketlab**, **relativity**, **figureai**, **nerostechnologies**, leolabsinc, **flyzipline**, **vast**, **harbingermotors**, skyryse, sambanovasystems, revolutionmedicines, **purestorage**, **fashionnova**, nordicnaturals, vardaspace, wing, oura, sharpelectronics, smartsheet, stripe, voyagertechnologiesinc, k2spacecorporation, anthropic, gillig, antora, weee |
-| **Lever** | Postings JSON API | 9 | **zoox**, veeva, aeratechnology, velo3d, **penumbrainc**, **ambirobotics**, **orcabiosystems**, gopuff, thrivecausemetics |
-| **Ashby** | Posting JSON API | 13 | openai, snowflake, **1x**, **mach**, **gritt**, **northwoodspace**, **crusoe**, plasmidsaurus, midjourney, nubank, tandempv, xona-space, hadrian-automation |
+| Platform | Method | Count | Representative companies |
+|----------|--------|-------|--------------------------|
+| **Workday** | CXS JSON API | 98 | nvidia, intel, cisco, broadcom, **appliedmaterials**, **marvell**, **kla**, edwards, gilead, amgen, illumina, dexcom, resmed, stryker, genentech, chipotle, clorox, **niagara**, chevron (+ university site), sunrun, **bloomenergy**, levistrauss, deckers, **skechers**, **northropgrumman**, **johnsonjohnson**, **target**, mondelez, caterpillar, proctergamble, pfizer, cocacola, nissan, conagra, generalmills, kimberlyclark, walmart, toyota, pepsico, **rtx**, hp, **bd**, pwc, bakertilly, trimble, chrobinson, abbott, **thermofisher**, **motorolasolutions**, **avantor**, **teledyne**, bluediamond, worldmarket, saks, veralto, **hyve**, gap, dupont, cardinalhealth, **sysco**, **usfoods**, ingrammicro, cadence, **specialized**, **boeing**, accenture, shoepalace, moog, airgas, peets, safelite, legends, stanfordhealthcare, hdsupply, huntsman, lennar, rosendin, universalmusic, solarturbines, pcipharma, altamed, ryder, novartis, backroads, flex, logitech, micron, nxp, iherb, cellink, anheuserbusch, iqvia, adobe, danaher, nextracker |
+| **Greenhouse** | Boards JSON API | 75 | **flexport**, lucidmotors, nuro, samsara, **doordashusa**, instacart, **waymo**, **andurilindustries**, **spacex**, uberfreight, **aloyoga**, **carvana**, **shein**, **rocketlab**, **relativity**, **figureai**, **nerostechnologies**, leolabsinc, **flyzipline**, **vast**, **harbingermotors**, skyryse, sambanovasystems, revolutionmedicines, **purestorage**, **fashionnova**, nordicnaturals, vardaspace, wing, oura, sharpelectronics, smartsheet, stripe, voyagertechnologiesinc, k2spacecorporation, anthropic, gillig, antora, weee |
+| **Lever** | Postings JSON API | 25 | **zoox**, veeva, aeratechnology, velo3d, **penumbrainc**, **ambirobotics**, **orcabiosystems**, gopuff, thrivecausemetics |
+| **Ashby** | Posting JSON API | 28 | openai, snowflake, **1x**, **mach**, **gritt**, **northwoodspace**, **crusoe**, plasmidsaurus, midjourney, nubank, tandempv, xona-space, hadrian-automation |
 | **SmartRecruiters** | Postings JSON API | 8 | **WesternDigital**, AbbVie, MattelInc, **Intuitive**, **TheWonderfulCompany**, RRDonnelley, Sandisk, aristanetworks |
 | **OracleCloud** | Recruiting REST API | 10 | fortinet, honeywell, oracle, albertsons, saic, cedarssinai, ichor, williamssonoma, cohu, dpworld |
 | **SuccessFactors** | CSB tile-search HTML | 3 | sap, supermicro, pge |
-| **iCIMS** | legacy fragment HTML | 6 | **ait**, nikkiso, snapon, yusen, triplessteel, dole |
+| **iCIMS** | legacy fragment HTML | 9 | **ait**, nikkiso, snapon, yusen, triplessteel, dole |
 | **Paylocity** | Recruiting JSON API | 2 | oneill, baycitiescontainer |
 | **BambooHR** | hosted careers list | 1 | pivotalsys |
 
@@ -244,7 +245,7 @@ outbound proxy. Everything else runs on a direct connection.
 
 ### Aggregator source (Adzuna) — the long-tail net
 
-The direct scrapers cover ~201 known employers with full metadata and 15-min freshness. **Adzuna**
+The direct scrapers cover ~273 known employers with full metadata and 15-min freshness. **Adzuna**
 (`AdzunaScraper`) complements them by querying the [Adzuna jobs API](https://developer.adzuna.com) for
 `{SCM titles} × California` across *every* board — surfacing roles at the ~450 long-tail employers
 (small/custom ATSs) we can't scrape directly. Same `JobScraper` interface, so it reuses the whole
@@ -288,6 +289,33 @@ aggregates Indeed/LinkedIn/etc.) fills that gap as a pure **discovery** feed, no
 - **Caveat:** the aggregator samples ~one posting per employer, so JSearch is good at *presence*
   (who's hiring SCM) but not *volume* — confirm "how heavy" by counting a candidate's own ATS board
   before wiring up a scraper.
+
+### ATS-native discovery — the core enrichment engine
+
+Aggregators (Adzuna/JSearch) give you an employer *name*, then leave you to reverse-engineer which ATS
+they run. **Searching the ATS directly is strictly better for this pipeline** — every hit already
+carries the ATS token, so it's a company + platform + slug ready to wire in. Three skills form the
+repeatable "find company → verify ATS → scrape" loop, and this is how the roster grew from ~126 to
+~260 employers:
+
+| Skill | What it does | When |
+|-------|--------------|------|
+| **`discover-ats-dork`** | `site:{ats-domain} {SCM} California` search per platform → extract token from each result URL → dedupe vs config. Fast, sampled. | Quick "who else hires CA SCM", or ATS that can't be censused (Workday/iCIMS — the dork URL carries tenant+site). |
+| **`discover-ats-census`** | Exhaustive, free "technographic list": enumerate *every* company on a path-ATS, probe each board's public API, rank net-new by CA-SCM count. | Deep sweeps of Greenhouse/Lever/Ashby. `scripts/discover-ats-census.sh {ats} --source all`. |
+| **`migrate-companies`** | Verify a candidate's real ATS (`scripts/ats-detect.sh`), wire it into config, test-poll, diff pre/post notifiable. | Turning any discovered candidate into a live scraper. |
+
+**How the free census works** (the no-cost equivalent of BuiltWith/TheirStack): path-based ATS
+(`boards.greenhouse.io/{token}`) are enumerated from **Common Crawl** + **Wayback CDX** (Internet
+Archive), unioned and deduped; each board's public jobs API is then probed and filtered to CA-SCM from
+the live job data — so no paid firmographic list is needed. Wayback is fully paginated (via `resumeKey`)
+and is the workhorse; CC's monthly indexes union in extra coverage when its rate-limit permits.
+
+**Known limits** (documented so they're not re-hit): (1) **Subdomain-based ATS — Workday, iCIMS —
+can't be censused for free**: tenants are masked by wildcard TLS certs (invisible to Certificate
+Transparency) and the crawl indexes have too many URLs per tenant to page fully; use `discover-ats-dork`
+for these. (2) Both crawl indexes rate-limit heavy same-day use — the census self-throttles and skips a
+blocked source gracefully. (3) Yield is *presence, not volume*, and includes closed reqs + hourly/senior
+roles the pipeline drops — always re-verify a candidate's live board before wiring (the skills do this).
 
 ---
 
