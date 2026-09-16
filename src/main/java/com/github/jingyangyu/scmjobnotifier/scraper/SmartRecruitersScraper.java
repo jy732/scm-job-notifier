@@ -120,10 +120,16 @@ public class SmartRecruitersScraper implements JobScraper {
                             .replaceAll(",\\s*,", ",");
         }
 
+        String id = strOrEmpty(posting.get("id"));
+        // The postings API usually omits relatedLinks, so most jobs had a blank URL (no email link).
+        // Fall back to the canonical public posting URL, which is jobs.smartrecruiters.com/{co}/{id}.
         String url = "";
         Object relatedLinks = posting.get("relatedLinks");
         if (relatedLinks instanceof Map<?, ?> linksMap) {
             url = strOrEmpty(linksMap.get("careerPage"));
+        }
+        if (url.isEmpty() && !id.isEmpty()) {
+            url = "https://jobs.smartrecruiters.com/" + company + "/" + id;
         }
 
         String description = strOrEmpty(posting.get("name"));
@@ -150,7 +156,7 @@ public class SmartRecruitersScraper implements JobScraper {
 
         return JobPosting.builder()
                 .company(company)
-                .externalId(strOrEmpty(posting.get("id")))
+                .externalId(id)
                 .title(strOrEmpty(posting.get("name")))
                 .url(url)
                 .location(location)
