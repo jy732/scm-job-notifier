@@ -28,8 +28,15 @@ filters — and we filter straight from live job data, so we don't need theirs.
 ```
 scripts/discover-ats-census.sh greenhouse                    # full sweep (~10-20 min)
 scripts/discover-ats-census.sh greenhouse --limit-probe 300  # quick sample
-scripts/discover-ats-census.sh greenhouse --pages 3 --workers 8
+scripts/discover-ats-census.sh lever --source all --workers 12
+scripts/discover-ats-census.sh smartrecruiters --source all  # staffing-filtered (SR-only)
 ```
+
+Supports the four **path-based** ATS: `greenhouse`, `lever`, `ashby`, `smartrecruiters`. SmartRecruiters
+carries a built-in `staff_filter` (SR-only) that drops staffing-agency tokens before probing — SR is
+staffing-dominated, so without it the results are ~70% Cynet/Collabera-type noise. Even filtered, SR is
+a **thin/low-signal** vein for CA-SCM (a 5k-board sweep yielded ~3 clean employers); Greenhouse is the
+rich one. Subdomain ATS (Workday/iCIMS) still can't be censused (see limits below) — use the dork.
 
 Pipeline: enumerate tokens (CC) → dedupe vs `application.properties` → probe each net-new board's
 `boards-api.greenhouse.io/v1/boards/{tok}/jobs` (threaded) → keep roles that are SCM-title AND

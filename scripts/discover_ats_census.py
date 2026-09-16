@@ -61,16 +61,26 @@ DROP = re.compile(
 )
 STAFF = re.compile(
     r"staffing|recruit|talent|consult|collabera|bcforward|aston carter|robert half|randstad|"
-    r"adecco|aerotek|actalent|kelly services|cynet|insight global|apex systems|teksystems",
+    r"adecco|aerotek|actalent|kelly services|cynet|insight global|apex systems|teksystems|"
+    r"woongjin|prolim|22nd century|net2source|compunnel|iconma|artech|mindlance|russell tobin|"
+    r"beacon hill|judge group|ledgent|integrated resources|vaco|gpac|rose international|kforce|"
+    r"diverse lynx|system one|golden star|millenniumsoft|manpower|cybercoders|jobot|dgn tech",
     re.I,
 )
+
+
+import ssl as _ssl
+
+_CTX = _ssl.create_default_context()
+_CTX.check_hostname = False
+_CTX.verify_mode = _ssl.CERT_NONE  # some ATS APIs (e.g. SmartRecruiters) are TLS-intercepted here
 
 
 def urlopen(url, timeout=15, retries=2):
     last = None
     for attempt in range(retries + 1):
         try:
-            return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout)
+            return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout, context=_CTX)
         except Exception as e:  # transient CC/API disconnects, timeouts
             last = e
             import time
@@ -206,6 +216,20 @@ def probe_ashby(tok):
     return tok, len(jobs), _filter((j.get("title", ""), j.get("location", "")) for j in jobs)
 
 
+def probe_sr(tok):
+    try:
+        d = json.load(urlopen(f"https://api.smartrecruiters.com/v1/companies/{tok}/postings?limit=100", 8, retries=0))
+    except Exception:
+        return tok, None, []
+    if not isinstance(d, dict) or d.get("totalFound", 0) == 0:
+        return tok, 0, []
+    rows = ((p.get("name", ""),
+             ", ".join(x for x in [(p.get("location") or {}).get("city", ""),
+                                   (p.get("location") or {}).get("region", "")] if x))
+            for p in d.get("content", []))
+    return tok, d.get("totalFound", 0), _filter(rows)
+
+
 ATS = {
     "greenhouse": dict(domain="boards.greenhouse.io", csv_key="greenhouse", probe=probe_gh,
                        token_re=r"greenhouse\.io/(?:embed/[^?]*(?:for|token)=)?([A-Za-z0-9_-]+)"),
@@ -213,6 +237,8 @@ ATS = {
                   token_re=r"jobs\.lever\.co/([A-Za-z0-9_-]+)"),
     "ashby": dict(domain="jobs.ashbyhq.com", csv_key="ashby", probe=probe_ashby,
                   token_re=r"jobs\.ashbyhq\.com/([A-Za-z0-9_-]+)"),
+    "smartrecruiters": dict(domain="jobs.smartrecruiters.com", csv_key="smartrecruiters", probe=probe_sr,
+                            token_re=r"jobs\.smartrecruiters\.com/([A-Za-z0-9_-]+)", staff_filter=True),
 }
 
 
@@ -238,6 +264,10 @@ def main():
         toks = enum_all(spec["domain"], spec["token_re"], a.cc_indexes)
     own, cfg_all = configured_tokens(spec["csv_key"])
     netnew = sorted(orig for low, orig in toks.items() if low not in own and low not in cfg_all)
+    if spec.get("staff_filter"):  # SmartRecruiters skews ~70% staffing agencies — drop them up front
+        before = len(netnew)
+        netnew = [t for t in netnew if not STAFF.search(t)]
+        print(f"      staffing filter dropped {before - len(netnew)} agency tokens", file=sys.stderr)
     print(f"      {len(toks)} distinct tokens, {len(netnew)} net-new (not in config)", file=sys.stderr)
     if a.limit_probe:
         netnew = netnew[: a.limit_probe]
