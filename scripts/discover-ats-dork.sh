@@ -29,9 +29,35 @@ declare -a DOMAINS=(
   "jobs.smartrecruiters.com"    # NOISY — ~70% staffing agencies, down-weight
 )
 
+# For SUBDOMAIN ATS (Workday/iCIMS) the census can't enumerate (wildcard-masked), and a single broad
+# dork undersamples. Instead run MANY niche queries — each SCM sub-discipline surfaces DIFFERENT
+# tenants — and union the tenants harvested. This is the effective Workday discovery method (see the
+# discover-ats-dork skill): it returns only tenants already hiring CA-SCM (the thin subset we want),
+# with tenant+instance+site in the URL, so no enumerate-all + no coordinate resolution.
+declare -a NICHES=(
+  '"commodity manager" OR "strategic sourcing"'
+  '"supplier quality" OR "supplier development"'
+  '"inventory analyst" OR "inventory control"'
+  '"production planner" OR "master scheduler"'
+  '"procurement specialist" OR "purchasing agent"'
+  '"materials manager" OR "materials planner"'
+  '"demand planner" OR "supply planner"'
+  '"logistics coordinator" OR "logistics analyst"'
+  '"supply chain analyst" OR "supply chain associate"'
+  '"buyer planner" OR "material control"'
+  '"category manager" OR "sourcing specialist"'
+  '"warehouse coordinator" OR "distribution planner"'
+)
+
 cmd="${1:-queries}"
 
-if [ "$cmd" = "queries" ]; then
+if [ "$cmd" = "workday-queries" ] || [ "$cmd" = "niche-queries" ]; then
+  dom="${2:-myworkdayjobs.com}"
+  echo "# Subdomain-ATS deep sweep: run each in WebSearch (allowed_domains=[\"$dom\"]), collect URLs,"
+  echo "# then: scripts/discover-ats-dork.sh parse <file>.  Union across all ~12 surfaces most tenants."
+  echo
+  for n in "${NICHES[@]}"; do printf 'site:%s %s California\n' "$dom" "$n"; done
+elif [ "$cmd" = "queries" ]; then
   echo "# Run each in WebSearch (allowed_domains=[the domain]); paste the result URLs into a file,"
   echo "# then: scripts/discover-ats-dork.sh parse <that-file>"
   echo

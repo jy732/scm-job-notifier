@@ -11,7 +11,37 @@ better: `site:{ats-domain} {SCM terms} California` returns URLs whose path alrea
 token, so every hit is **company + platform + slug in one step**. It complements JSearch (which still
 catches employers on ATSs you can't dork, e.g. Oracle/custom sites).
 
-## Procedure
+## Workday/iCIMS: the dork is THE effective method (2026-09-17 finding)
+
+Subdomain-based ATS (Workday `{tenant}.wdN.myworkdayjobs.com`, iCIMS) **cannot be enumerated for
+free**, and the dork is the effective discovery method — this was established by experiment:
+
+| Enumeration attempt | Result |
+|---|---|
+| Certificate Transparency (crt.sh/certspotter) | ✗ wildcard-masked — `*.wdN.myworkdayjobs.com`, 0 tenants |
+| Common Crawl / Wayback CDX | ✗ SURT `com,myworkdayjobs,wdN,{tenant})`; millions of URLs/instance, `collapse` doesn't reduce to one-row-per-tenant, columnar index needs Athena/DuckDB+TB scan |
+| Passive DNS (RapidDNS free) | ✗ 100-capped, and unfiltered → ~0 CA-SCM hit rate |
+| GitHub tenant lists | △ real but SWE-internship-skewed (159 tenants → 1 CA-SCM add) |
+| JSearch apply-links | ✗ aggregator redirects (LinkedIn/ZipRecruiter), no tenant exposed |
+| Paid (TheirStack/BuiltWith/Apify) | △ complete but last-mile resolution still attrition-heavy, poor ROI |
+
+**Why the dork wins:** the CA-SCM Workday *supply* is thin and big-national-skewed, and we only want
+the *hiring* subset — so enumerate-all-then-filter is strictly worse than dorking the CA-SCM-hiring
+tenants directly. The dork returns exactly that subset, with tenant+instance+site in the URL (no
+resolution step). A single broad query undersamples, so run the **niche sweep** — each SCM
+sub-discipline surfaces different tenants:
+
+```
+scripts/discover-ats-dork.sh workday-queries              # ~12 niche queries for myworkdayjobs.com
+scripts/discover-ats-dork.sh workday-queries icims.com    # same for iCIMS
+```
+
+Run all ~12 in WebSearch (`allowed_domains=["myworkdayjobs.com"]`), `parse` the URLs, then CXS-probe
+the net-new tenants for CA-SCM (drop Canada/Mexico/Serbia false-`CA` matches — check for `", CA"`/
+`California`, not a bare `ca`/`CA` token). Validated finds via this method: guardanthealth,
+interiorlogicgroup, analogdevices, agilent, + AeroVironment (that one via the GitHub list).
+
+## Procedure (path-ATS or single-platform)
 
 1. **Get the queries:**
    ```
