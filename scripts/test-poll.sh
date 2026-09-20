@@ -20,7 +20,11 @@ cd "$(dirname "$0")/.." || exit 1
 JAR="target/scm-job-notifier-0.0.1-SNAPSHOT.jar"
 LOG="polltest.log"
 PORT=8081
-PATTERN="scm-job-notifier-0.0.1-SNAPSHOT.jar"
+# Match BOTH jar paths: the build artifact (target/scm-job-notifier-0.0.1-SNAPSHOT.jar, what this
+# script starts) AND the stable copy app.sh launches (run/scm-job-notifier.jar). The old
+# SNAPSHOT-only pattern silently missed a live app.sh instance, so step 1 freed nothing and the
+# test instance died with "Port 8081 was already in use" — a no-op "safe poll".
+PATTERN="scm-job-notifier.*\.jar"
 NEVER="0 0 5 31 12 *"   # 05:00 on Dec 31 — effectively never during a test
 
 BUILD=1
@@ -41,6 +45,12 @@ trap cleanup EXIT
 # 1) Free the port / stop any live instance (this would otherwise send real email).
 if pgrep -f "$PATTERN" >/dev/null 2>&1; then
   echo "stopping existing instance (frees port $PORT)…"; pkill -9 -f "$PATTERN"; sleep 1
+fi
+# Belt-and-braces: whatever still holds the port would make the test instance fail to start, and a
+# stale listener means the poll under test never runs. Fail loudly instead of silently no-opping.
+if command -v lsof >/dev/null 2>&1 && lsof -ti ":$PORT" >/dev/null 2>&1; then
+  echo "✗ port $PORT still in use by pid(s) $(lsof -ti ":$PORT" | tr '\n' ' ')— stop it first (scripts/app.sh stop)"
+  exit 1
 fi
 
 # 2) Build (so the test reflects current code/config).
