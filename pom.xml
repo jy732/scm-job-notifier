@@ -146,6 +146,8 @@
                         <exclude>**/scraper/GoogleScraper*.class</exclude>
                         <exclude>**/scraper/BrassRingScraper*.class</exclude>
                         <exclude>**/scraper/TeslaScraper*.class</exclude>
+                        <exclude>**/scraper/DayforceScraper*.class</exclude>
+                        <exclude>**/scraper/PaycomScraper*.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>

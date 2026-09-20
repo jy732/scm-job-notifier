@@ -2,12 +2,17 @@ package com.github.jingyangyu.scmjobnotifier.scraper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.github.jingyangyu.scmjobnotifier.config.AdpProperties;
 import com.github.jingyangyu.scmjobnotifier.config.AdzunaProperties;
 import com.github.jingyangyu.scmjobnotifier.config.BrassRingProperties;
+import com.github.jingyangyu.scmjobnotifier.config.DayforceProperties;
 import com.github.jingyangyu.scmjobnotifier.config.IcimsProperties;
 import com.github.jingyangyu.scmjobnotifier.config.OracleCloudProperties;
+import com.github.jingyangyu.scmjobnotifier.config.PaycomProperties;
 import com.github.jingyangyu.scmjobnotifier.config.PaylocityProperties;
+import com.github.jingyangyu.scmjobnotifier.config.PhenomProperties;
 import com.github.jingyangyu.scmjobnotifier.config.SuccessFactorsProperties;
+import com.github.jingyangyu.scmjobnotifier.config.UltiProProperties;
 import com.github.jingyangyu.scmjobnotifier.config.WorkdayProperties;
 import com.github.jingyangyu.scmjobnotifier.model.JobPosting;
 import com.github.jingyangyu.scmjobnotifier.support.WebClientStubs;
@@ -35,6 +40,12 @@ class AdzunaScraperTest {
                 new SuccessFactorsProperties(),
                 new PaylocityProperties(),
                 new BrassRingProperties(),
+                new UltiProProperties(),
+                new PhenomProperties(),
+                new DayforceProperties(),
+                new PaycomProperties(),
+                new AdpProperties(),
+                "",
                 "",
                 "",
                 "",
@@ -96,11 +107,44 @@ class AdzunaScraperTest {
                 new SuccessFactorsProperties(),
                 new PaylocityProperties(),
                 new BrassRingProperties(),
+                new UltiProProperties(),
+                new PhenomProperties(),
+                new DayforceProperties(),
+                new PaycomProperties(),
+                new AdpProperties(),
                 gh,
                 "",
                 "",
                 "",
+                "",
                 "");
+    }
+
+    /** A transport failure mid-fetch is swallowed and whatever was collected is returned. */
+    @Test
+    void networkErrorReturnsWhatWasCollected() {
+        AdzunaScraper s =
+                new AdzunaScraper(
+                        WebClientStubs.erroring(),
+                        configured(),
+                        new WorkdayProperties(),
+                        new OracleCloudProperties(),
+                        new IcimsProperties(),
+                        new SuccessFactorsProperties(),
+                        new PaylocityProperties(),
+                        new BrassRingProperties(),
+                        new UltiProProperties(),
+                        new PhenomProperties(),
+                        new DayforceProperties(),
+                        new PaycomProperties(),
+                        new AdpProperties(),
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "");
+        assertThat(s.scrape("adzuna")).isEmpty();
     }
 
     @Test

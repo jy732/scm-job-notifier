@@ -1,11 +1,16 @@
 package com.github.jingyangyu.scmjobnotifier.scraper;
 
+import com.github.jingyangyu.scmjobnotifier.config.AdpProperties;
 import com.github.jingyangyu.scmjobnotifier.config.AdzunaProperties;
 import com.github.jingyangyu.scmjobnotifier.config.BrassRingProperties;
+import com.github.jingyangyu.scmjobnotifier.config.DayforceProperties;
 import com.github.jingyangyu.scmjobnotifier.config.IcimsProperties;
 import com.github.jingyangyu.scmjobnotifier.config.OracleCloudProperties;
+import com.github.jingyangyu.scmjobnotifier.config.PaycomProperties;
 import com.github.jingyangyu.scmjobnotifier.config.PaylocityProperties;
+import com.github.jingyangyu.scmjobnotifier.config.PhenomProperties;
 import com.github.jingyangyu.scmjobnotifier.config.SuccessFactorsProperties;
+import com.github.jingyangyu.scmjobnotifier.config.UltiProProperties;
 import com.github.jingyangyu.scmjobnotifier.config.WorkdayProperties;
 import com.github.jingyangyu.scmjobnotifier.model.JobPosting;
 import java.net.URI;
@@ -116,11 +121,17 @@ public class AdzunaScraper implements JobScraper {
             SuccessFactorsProperties sf,
             PaylocityProperties paylocity,
             BrassRingProperties brassring,
+            UltiProProperties ultipro,
+            PhenomProperties phenom,
+            DayforceProperties dayforce,
+            PaycomProperties paycom,
+            AdpProperties adp,
             @Value("${job.companies.greenhouse:}") String greenhouse,
             @Value("${job.companies.lever:}") String lever,
             @Value("${job.companies.ashby:}") String ashby,
             @Value("${job.companies.smartrecruiters:}") String smartrecruiters,
-            @Value("${job.companies.bamboohr:}") String bamboohr) {
+            @Value("${job.companies.bamboohr:}") String bamboohr,
+            @Value("${job.jazzhr.companies:}") String jazzhr) {
         this.webClient = webClientBuilder.build();
         this.props = props;
         this.excludeTokens =
@@ -131,11 +142,17 @@ public class AdzunaScraper implements JobScraper {
                         sf,
                         paylocity,
                         brassring,
+                        ultipro,
+                        phenom,
+                        dayforce,
+                        paycom,
+                        adp,
                         greenhouse,
                         lever,
                         ashby,
                         smartrecruiters,
-                        bamboohr);
+                        bamboohr,
+                        jazzhr);
         log.info(
                 "Adzuna scraper initialized (configured={}, {} exclude tokens, throttle={}m)",
                 props.isConfigured(),
@@ -150,11 +167,17 @@ public class AdzunaScraper implements JobScraper {
             SuccessFactorsProperties sf,
             PaylocityProperties paylocity,
             BrassRingProperties brassring,
+            UltiProProperties ultipro,
+            PhenomProperties phenom,
+            DayforceProperties dayforce,
+            PaycomProperties paycom,
+            AdpProperties adp,
             String greenhouse,
             String lever,
             String ashby,
             String smartrecruiters,
-            String bamboohr) {
+            String bamboohr,
+            String jazzhr) {
         Set<String> tokens = new HashSet<>();
         workday.getCompanies().forEach(c -> addToken(tokens, c.getName()));
         oracle.getCompanies().forEach(c -> addToken(tokens, c.getName()));
@@ -162,7 +185,12 @@ public class AdzunaScraper implements JobScraper {
         sf.getCompanies().forEach(c -> addToken(tokens, c.getName()));
         paylocity.getCompanies().forEach(c -> addToken(tokens, c.getName()));
         brassring.getCompanies().forEach(c -> addToken(tokens, c.getName()));
-        for (String csv : List.of(greenhouse, lever, ashby, smartrecruiters, bamboohr)) {
+        ultipro.getCompanies().forEach(c -> addToken(tokens, c.getName()));
+        phenom.getCompanies().forEach(c -> addToken(tokens, c.getName()));
+        dayforce.getCompanies().forEach(c -> addToken(tokens, c.getName()));
+        paycom.getCompanies().forEach(c -> addToken(tokens, c.getName()));
+        adp.getCompanies().forEach(c -> addToken(tokens, c.getName()));
+        for (String csv : List.of(greenhouse, lever, ashby, smartrecruiters, bamboohr, jazzhr)) {
             for (String slug : csv.split(",")) {
                 addToken(tokens, slug);
             }

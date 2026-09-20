@@ -1,13 +1,19 @@
 package com.github.jingyangyu.scmjobnotifier;
 
+import com.github.jingyangyu.scmjobnotifier.config.AdpProperties;
 import com.github.jingyangyu.scmjobnotifier.config.AdzunaProperties;
 import com.github.jingyangyu.scmjobnotifier.config.BrassRingProperties;
+import com.github.jingyangyu.scmjobnotifier.config.DayforceProperties;
 import com.github.jingyangyu.scmjobnotifier.config.IcimsProperties;
+import com.github.jingyangyu.scmjobnotifier.config.JazzHrProperties;
 import com.github.jingyangyu.scmjobnotifier.config.OracleCloudProperties;
+import com.github.jingyangyu.scmjobnotifier.config.PaycomProperties;
 import com.github.jingyangyu.scmjobnotifier.config.PaylocityProperties;
+import com.github.jingyangyu.scmjobnotifier.config.PhenomProperties;
 import com.github.jingyangyu.scmjobnotifier.config.ProxyProperties;
 import com.github.jingyangyu.scmjobnotifier.config.SuccessFactorsProperties;
 import com.github.jingyangyu.scmjobnotifier.config.TeslaProperties;
+import com.github.jingyangyu.scmjobnotifier.config.UltiProProperties;
 import com.github.jingyangyu.scmjobnotifier.config.WorkdayProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -32,7 +38,13 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     BrassRingProperties.class,
     ProxyProperties.class,
     TeslaProperties.class,
-    AdzunaProperties.class
+    AdzunaProperties.class,
+    UltiProProperties.class,
+    JazzHrProperties.class,
+    PhenomProperties.class,
+    DayforceProperties.class,
+    PaycomProperties.class,
+    AdpProperties.class
 })
 public class ScmJobNotifierApplication {
 

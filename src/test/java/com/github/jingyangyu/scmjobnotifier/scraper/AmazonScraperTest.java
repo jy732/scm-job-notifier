@@ -15,6 +15,12 @@ class AmazonScraperTest {
                     + "\"posted_date\":\"August 1, 2026\"}]}";
 
     @Test
+    void companiesListsTheSingleTenant() {
+        assertThat(new AmazonScraper(WebClientStubs.json(u -> BODY)).companies())
+                .containsExactly("amazon");
+    }
+
+    @Test
     void platform() {
         assertThat(new AmazonScraper(WebClientStubs.json(u -> BODY)).platform())
                 .isEqualTo("amazon");
