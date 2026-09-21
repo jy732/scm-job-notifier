@@ -2,6 +2,7 @@ package com.github.jingyangyu.scmjobnotifier.scraper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.github.jingyangyu.scmjobnotifier.config.AdpMyJobsProperties;
 import com.github.jingyangyu.scmjobnotifier.config.AdpProperties;
 import com.github.jingyangyu.scmjobnotifier.config.AdzunaProperties;
 import com.github.jingyangyu.scmjobnotifier.config.BrassRingProperties;
@@ -45,6 +46,7 @@ class AdzunaScraperTest {
                 new DayforceProperties(),
                 new PaycomProperties(),
                 new AdpProperties(),
+                new AdpMyJobsProperties(),
                 "",
                 "",
                 "",
@@ -112,6 +114,7 @@ class AdzunaScraperTest {
                 new DayforceProperties(),
                 new PaycomProperties(),
                 new AdpProperties(),
+                new AdpMyJobsProperties(),
                 gh,
                 "",
                 "",
@@ -138,6 +141,7 @@ class AdzunaScraperTest {
                         new DayforceProperties(),
                         new PaycomProperties(),
                         new AdpProperties(),
+                        new AdpMyJobsProperties(),
                         "",
                         "",
                         "",

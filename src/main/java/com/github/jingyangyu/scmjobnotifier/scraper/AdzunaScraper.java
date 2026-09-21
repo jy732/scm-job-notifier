@@ -1,5 +1,6 @@
 package com.github.jingyangyu.scmjobnotifier.scraper;
 
+import com.github.jingyangyu.scmjobnotifier.config.AdpMyJobsProperties;
 import com.github.jingyangyu.scmjobnotifier.config.AdpProperties;
 import com.github.jingyangyu.scmjobnotifier.config.AdzunaProperties;
 import com.github.jingyangyu.scmjobnotifier.config.BrassRingProperties;
@@ -126,6 +127,7 @@ public class AdzunaScraper implements JobScraper {
             DayforceProperties dayforce,
             PaycomProperties paycom,
             AdpProperties adp,
+            AdpMyJobsProperties adpMyJobs,
             @Value("${job.companies.greenhouse:}") String greenhouse,
             @Value("${job.companies.lever:}") String lever,
             @Value("${job.companies.ashby:}") String ashby,
@@ -147,6 +149,7 @@ public class AdzunaScraper implements JobScraper {
                         dayforce,
                         paycom,
                         adp,
+                        adpMyJobs,
                         greenhouse,
                         lever,
                         ashby,
@@ -172,6 +175,7 @@ public class AdzunaScraper implements JobScraper {
             DayforceProperties dayforce,
             PaycomProperties paycom,
             AdpProperties adp,
+            AdpMyJobsProperties adpMyJobs,
             String greenhouse,
             String lever,
             String ashby,
@@ -190,6 +194,7 @@ public class AdzunaScraper implements JobScraper {
         dayforce.getCompanies().forEach(c -> addToken(tokens, c.getName()));
         paycom.getCompanies().forEach(c -> addToken(tokens, c.getName()));
         adp.getCompanies().forEach(c -> addToken(tokens, c.getName()));
+        adpMyJobs.getCompanies().forEach(c -> addToken(tokens, c.getName()));
         for (String csv : List.of(greenhouse, lever, ashby, smartrecruiters, bamboohr, jazzhr)) {
             for (String slug : csv.split(",")) {
                 addToken(tokens, slug);
