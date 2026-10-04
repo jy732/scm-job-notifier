@@ -26,7 +26,7 @@ discovery](#ats-native-discovery--the-core-enrichment-engine).
 A single Spring Boot process runs four scheduled jobs against a file-based H2 database. The main poll
 cycle:
 
-1. **Scrape** — every 15 min, polls 259 config-driven companies (10 ATS platforms) plus ~14
+1. **Scrape** — every 30 min, polls 355 config-driven companies (30 scraper platforms) plus ~14
    bespoke/other-ATS targets (Amazon, Apple, Microsoft, Tesla, Google, ByteDance, Eightfold, Jibe, …)
    using a 12-thread pool (3-min per-company timeout). **Greenhouse and Workday** fetch metadata only
    and defer descriptions to post-dedup;
@@ -48,21 +48,47 @@ cycle:
 
 ### End-to-end flow
 
-```
-                        every 15 min
-                             │
-   ┌─────────────────────────▼─────────────────────────────────┐
-   │ scrape → freshness → exclude (senior/software) → California │
-   │  → SCM-relevance → dedup → fetch JD (Workday) → classify    │
-   │  → persist                                                  │
-   └─────────────────────────┬─────────────────────────────────┘
-                             │  (level written to DB)
-      every 5 min            ▼
-   ┌───────────────────────────────────┐    daily 08:00 → summary email
-   │ query unnotified ENTRY/INTERN/     │    daily 03:00 → delete jobs >90 days
-   │ UNSURE → send ONE email → mark     │
-   │ notified                          │
-   └───────────────────────────────────┘
+```mermaid
+flowchart TD
+    CRON(["⏱ every 30 min"]) --> SCRAPE["<b>Scrape</b> · 30 scrapers · 355 companies"]
+    SCRAPE --> GATE{"<b>Pre-filters</b> — all must pass<br/>fresh ≤90d → title excludes → California → SCM keyword"}
+    GATE -->|any fails| X(["dropped — never stored"])
+    GATE -->|passes| DEDUP{"Unseen?<br/>company:externalId"}
+    DEDUP -->|seen| X
+    DEDUP -->|unseen| JD["<b>Fetch JD</b> · post-dedup only"]
+
+    JD --> S1{"<b>Stage 1</b> · title rules"}
+    S1 -->|no match| S2{"<b>Stage 2</b> · description rules"}
+    S2 -->|no match| SIG["<b>SignalExtractor</b><br/>13 keywords → ≤3 × 200-char snippets"]
+    SIG --> S3{"<b>Stage 3</b> · Gemini<br/>batches of 50 · title + signals only"}
+    S3 -->|API error| RETRY["retry on later polls"]
+
+    S1 -->|"TITLE_RULE"| LEVEL
+    S2 -->|"DESC_RULE"| LEVEL
+    S3 -->|"GEMINI"| LEVEL
+    S3 -->|"no API key ⇒ UNSURE"| LEVEL
+    RETRY -->|"3 failures ⇒ UNSURE"| LEVEL
+
+    LEVEL["<b>level</b> + classificationSource"] --> DB[("H2 · batch saveAll")]
+    DB --> ROUTE{"track"}
+    ROUTE -->|OTHER| QUIET(["stored, never emailed"])
+    ROUTE -->|"ENTRY_LEVEL · INTERNSHIP · UNSURE"| PEND["notified = false"]
+    SCAN(["⏱ every 5 min"]) --> PEND --> EMAIL["<b>one</b> alert email → mark notified"]
+    SUM(["⏱ daily 08:00"]) --> DIGEST["24h summary email"]
+    CLN(["⏱ daily 03:00"]) --> PURGE["purge jobs > 90d"]
+    DB -.-> DIGEST
+    DB -.-> PURGE
+
+    classDef drop fill:#f4f4f4,stroke:#bbb,color:#777
+    classDef gate fill:#fff6e5,stroke:#e0a300,color:#222
+    classDef stage fill:#eaf3ff,stroke:#2f6fd0,color:#102a43
+    classDef sink fill:#eaf7ee,stroke:#2e9e52,color:#0b3d20
+    classDef timer fill:#f3eaff,stroke:#7a3fd0,color:#2a1052
+    class X,QUIET drop
+    class GATE,DEDUP,ROUTE gate
+    class S1,S2,S3,SIG,RETRY,LEVEL,SCRAPE,JD stage
+    class DB,EMAIL,DIGEST,PURGE,PEND sink
+    class CRON,SCAN,SUM,CLN timer
 ```
 
 ---
@@ -363,7 +389,7 @@ this project's own `./data/` directory, independent of the SWE app's.
 
 ### Manual / debug endpoints
 
-The scheduled poll runs every 15 min, but you can trigger work on demand (handlers run off the
+The scheduled poll runs every 30 min, but you can trigger work on demand (handlers run off the
 WebFlux event loop):
 
 ```bash
@@ -384,7 +410,7 @@ a re-scrape. Defaults to `dryRun=true` — pass `dryRun=false` (plus optional `s
 
 | Job | Property | Schedule | Description |
 |-----|----------|----------|-------------|
-| **Poll** | `job.poll.cron` | every 15 min | scrape → filter → classify → persist |
+| **Poll** | `job.poll.cron` | every 30 min | scrape → filter → classify → persist |
 | **Alert scan** | `job.notification.scan.cron` | every 5 min | email unnotified ENTRY/INTERN/UNSURE jobs |
 | **Daily summary** | `job.summary.cron` | 08:00 | digest of the last 24 h |
 | **Cleanup** | `job.cleanup.cron` | 03:00 | delete jobs older than `job.retention.days` (90) |
