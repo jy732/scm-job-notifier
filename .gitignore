@@ -62,3 +62,5 @@ gemini-audit.csv
 # Python bytecode from scripts/
 __pycache__/
 *.pyc
+replay-check.log
+isolated-test*.log

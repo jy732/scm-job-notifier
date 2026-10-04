@@ -59,8 +59,8 @@ flowchart TD
 
     JD --> S1{"<b>Stage 1</b> · title rules"}
     S1 -->|no match| S2{"<b>Stage 2</b> · description rules"}
-    S2 -->|no match| SIG["<b>SignalExtractor</b><br/>13 keywords → ≤3 × 200-char snippets"]
-    SIG --> S3{"<b>Stage 3</b> · Gemini<br/>batches of 50 · title + signals only"}
+    S2 -->|no match| SIG["<b>SignalExtractor</b><br/>Responsibilities + Qualifications<br/><i>else description head</i>"]
+    SIG --> S3{"<b>Stage 3</b> · Gemini<br/>batches of 50 · title + job details · temp 0"}
     S3 -->|API error| RETRY["retry on later polls"]
 
     S1 -->|"TITLE_RULE"| LEVEL
@@ -132,9 +132,21 @@ match none and defer.
 ### Stage 3 — Gemini 2.5 Flash (`JobClassifier` + `GeminiClient`)
 
 - Remaining ambiguous jobs batched (50/call) and sent to Gemini for a 4-way call:
-  **ENTRY_LEVEL / INTERNSHIP / UNSURE / OTHER**. Prompt includes the title + extracted `Signal`
-  snippets and routes non-SCM/senior roles to OTHER.
-- Batches retried up to 3× with exponential backoff.
+  **ENTRY_LEVEL / INTERNSHIP / UNSURE / OTHER**. The prompt carries the title + the posting's
+  **Responsibilities / Qualifications** sections (`SignalExtractor.describeForPrompt`), falling back
+  to the head of the description when the posting has no headings — so only a job with *no*
+  description at all reaches the model on its title alone.
+- Sent at **`temperature: 0`**. Classification is not a creative task, and the API defaults to 1.0.
+- **Why not keyword snippets?** It used to send ≤3 windows mined with a 13-word keyword list.
+  Backtested over 3,761 stored JDs (`scripts/signal-backtest.py`), that left **84.5% of the jobs
+  that actually reach Stage 3 with an empty payload** — Stages 1–2 resolve everything with an
+  obvious marker first, so the jobs arriving here were exactly the ones those keywords could not
+  see. Two keywords never matched a single stored JD. Replaying 1,864 classified jobs through the
+  new prompt moved 152 OTHER→ENTRY_LEVEL (real roles previously dropped) and 284 UNSURE→OTHER
+  (noise previously emailed).
+- Batches retried up to 3× with exponential backoff, over a Gemini-only **120 s** HTTP
+  timeout — the richer prompt (~13k tokens/batch vs ~600) regularly exceeds the shared
+  30 s client, and a timeout here would dump the batch into the UNSURE fallback.
 - **No `GEMINI_API_KEY`** → every ambiguous job becomes **UNSURE** (still emailed) so the app runs
   without Gemini.
 - **API failure** → `classificationFailures++`, retried next poll; after 3 failures → **UNSURE**
@@ -464,7 +476,7 @@ src/main/java/com/github/jingyangyu/scmjobnotifier/
 │       ├── ClassificationPipeline.java     # 3-stage orchestrator
 │       ├── FilterKeywords.java             # exclude / entry / SCM / CA keyword sets + patterns
 │       ├── JobTitleFilter.java             # pre-filters + Stage-1 title classification
-│       ├── SignalExtractor.java            # Stage-2 signals + YOE/enrollment inference
+│       ├── SignalExtractor.java            # Stage-2 YOE/enrollment rules + Stage-3 prompt evidence
 │       ├── Signal.java  ClassificationResult.java
 │       ├── GeminiClient.java               # Gemini prompt + HTTP + parsing
 │       └── JobClassifier.java              # batch Gemini classification with retry

@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.github.jingyangyu.scmjobnotifier.model.JobPosting;
 import java.time.Instant;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class SignalExtractorTest {
@@ -20,42 +19,57 @@ class SignalExtractorTest {
     }
 
     @Test
-    void extractFromTitle() {
-        List<Signal> signals = SignalExtractor.extract(job("New Grad Analyst", null));
-        assertThat(signals).isNotEmpty();
-        assertThat(signals.get(0).source()).isEqualTo(Signal.Source.TITLE);
-        assertThat(signals.get(0).keyword()).isEqualTo("new grad");
+    void usesResponsibilitiesAndQualificationsSections() {
+        String jd =
+                "About our company, founded 1952, we value teamwork. "
+                        + "Responsibilities: maintain the sales floor and the stock room. "
+                        + "Qualifications: high school diploma, 0-2 years.";
+        String out = SignalExtractor.describeForPrompt(job("Inventory Associate", jd));
+        assertThat(out).contains("sales floor").contains("high school diploma");
+        // the company blurb ahead of the first heading is dropped
+        assertThat(out).doesNotContain("founded 1952");
     }
 
     @Test
-    void extractFromDescriptionWhenTitleThin() {
-        List<Signal> signals =
-                SignalExtractor.extract(job("Buyer", "Must be currently enrolled in a program."));
-        assertThat(signals).extracting(Signal::source).contains(Signal.Source.DESCRIPTION);
+    void joinsBothSectionsWhenBothPresent() {
+        String jd = "Responsibilities: pick orders. Requirements: forklift certification.";
+        assertThat(SignalExtractor.describeForPrompt(job("Picker", jd)))
+                .contains("pick orders")
+                .contains("forklift certification")
+                .contains("…");
     }
 
     @Test
-    void extractEmptyWhenNoSignals() {
-        assertThat(SignalExtractor.extract(job("Buyer", "Great team."))).isEmpty();
-        assertThat(SignalExtractor.extract(job(null, null))).isEmpty();
+    void fallsBackToDescriptionHeadWhenNoHeadings() {
+        String jd = "We need somebody to run daily cycle counts across three sites.";
+        assertThat(SignalExtractor.describeForPrompt(job("Analyst", jd))).isEqualTo(jd);
     }
 
     @Test
-    void extractCapsAtMaxSignals() {
-        String desc = "years years years years years pursuing new grad recent graduate entry level";
-        assertThat(SignalExtractor.extract(job("years", desc))).hasSizeLessThanOrEqualTo(3);
+    void stripsHtmlAndCollapsesWhitespace() {
+        String jd = "<p>Responsibilities:</p>\n\n<ul><li>ship   parcels</li></ul>";
+        String out = SignalExtractor.describeForPrompt(job("Clerk", jd));
+        assertThat(out).doesNotContain("<").contains("ship parcels");
     }
 
     @Test
-    void formatNoneWhenEmpty() {
-        assertThat(SignalExtractor.format(List.of())).isEqualTo("(none)");
+    void capsSectionLength() {
+        String jd = "Responsibilities: " + "x".repeat(5000);
+        assertThat(SignalExtractor.describeForPrompt(job("Planner", jd)).length())
+                .isLessThanOrEqualTo(1200);
     }
 
     @Test
-    void formatJoinsQuotedSnippets() {
-        List<Signal> signals = SignalExtractor.extract(job("New Grad Analyst", null));
-        String formatted = SignalExtractor.format(signals);
-        assertThat(formatted).startsWith("\"").contains("New Grad");
+    void capsHeadLengthWhenNoHeadings() {
+        String jd = "y".repeat(5000);
+        assertThat(SignalExtractor.describeForPrompt(job("Planner", jd)).length())
+                .isLessThanOrEqualTo(2500);
+    }
+
+    @Test
+    void noneWhenDescriptionMissingOrBlank() {
+        assertThat(SignalExtractor.describeForPrompt(job("Buyer", null))).isEqualTo("(none)");
+        assertThat(SignalExtractor.describeForPrompt(job("Buyer", "   "))).isEqualTo("(none)");
     }
 
     @Test

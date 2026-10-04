@@ -1,16 +1,21 @@
 package com.github.jingyangyu.scmjobnotifier.service.classification;
 
 import com.github.jingyangyu.scmjobnotifier.model.JobPosting;
+import io.netty.handler.timeout.ReadTimeoutHandler;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.netty.http.client.HttpClient;
 
 /**
  * Low-level client for the Gemini generativeLanguage API.
@@ -30,13 +35,44 @@ public class GeminiClient {
     private final String apiKey;
     private final String model;
 
+    /** Overridable so tests can point the client at a loopback server. */
+    private final String baseUrl;
+
+    /**
+     * Gemini needs a longer ceiling than the shared 30s client. A batch of 50 jobs now carries the
+     * Responsibilities/Qualifications text rather than a few keyword snippets (~13k prompt tokens
+     * vs ~600), and generation regularly runs past 30s — which surfaced as {@code
+     * ReadTimeoutException}, three failed retries, and the batch dumped into the
+     * AUTO_APPROVED-UNSURE fallback, i.e. exactly the unclassified output the richer prompt exists
+     * to prevent. Raised here rather than on the shared builder so scrapers keep failing fast.
+     */
+    private static final int GEMINI_TIMEOUT_S = 120;
+
     public GeminiClient(
             WebClient.Builder webClientBuilder,
             @Value("${gemini.api.key:}") String apiKey,
-            @Value("${gemini.model:gemini-2.5-flash}") String model) {
-        this.webClient = webClientBuilder.build();
+            @Value("${gemini.model:gemini-2.5-flash}") String model,
+            @Value("${gemini.api.base-url:https://generativelanguage.googleapis.com}")
+                    String baseUrl) {
+        this.webClient =
+                webClientBuilder
+                        .clone()
+                        .clientConnector(
+                                new ReactorClientHttpConnector(
+                                        HttpClient.create()
+                                                .responseTimeout(
+                                                        Duration.ofSeconds(GEMINI_TIMEOUT_S))
+                                                .doOnConnected(
+                                                        conn ->
+                                                                conn.addHandlerLast(
+                                                                        new ReadTimeoutHandler(
+                                                                                GEMINI_TIMEOUT_S,
+                                                                                TimeUnit
+                                                                                        .SECONDS)))))
+                        .build();
         this.apiKey = apiKey;
         this.model = model;
+        this.baseUrl = baseUrl;
 
         if (apiKey == null || apiKey.isBlank()) {
             log.error(
@@ -49,7 +85,7 @@ public class GeminiClient {
 
     private static final String LEVEL_SYSTEM_PROMPT =
             "You classify supply-chain-management (SCM) job postings by career stage. "
-                    + "Use the title and extracted signals. Categories: "
+                    + "Use the title and the job details provided. Categories: "
                     + "INTERNSHIP = internship / co-op / summer program for a currently-enrolled "
                     + "student. "
                     + "ENTRY_LEVEL = full-time early-career role: new grad, associate, coordinator, "
@@ -71,28 +107,29 @@ public class GeminiClient {
     }
 
     /**
-     * Builds the numbered user prompt with title + extracted signal snippets. Signal extraction is
-     * delegated to {@link SignalExtractor} which searches both the title and description.
+     * Builds the numbered user prompt: title + the job's Responsibilities/Qualifications (or the
+     * description head when the posting has no headings), via {@link
+     * SignalExtractor#describeForPrompt}. Only a posting with no description at all now arrives
+     * here empty — previously 84.5% of jobs reaching this stage carried nothing but a title.
      */
     String buildPrompt(List<JobPosting> batch) {
         StringBuilder sb = new StringBuilder("Classify these job postings:\n\n");
-        int withSignals = 0;
+        int withEvidence = 0;
         for (int i = 0; i < batch.size(); i++) {
             JobPosting job = batch.get(i);
-            List<Signal> signals = SignalExtractor.extract(job);
-            String formatted = SignalExtractor.format(signals);
-            if (!signals.isEmpty()) {
-                withSignals++;
+            String evidence = SignalExtractor.describeForPrompt(job);
+            if (!"(none)".equals(evidence)) {
+                withEvidence++;
             }
-            log.debug("Signal extraction [{}] {}: {}", job.getCompany(), job.getTitle(), formatted);
+            log.debug("Prompt evidence [{}] {}: {}", job.getCompany(), job.getTitle(), evidence);
             sb.append(String.format("%d. Title: %s\n", i + 1, job.getTitle()));
-            sb.append(String.format("   Signals: %s\n\n", formatted));
+            sb.append(String.format("   Details: %s\n\n", evidence));
         }
         log.info(
-                "Signal extraction: {}/{} job(s) had signals, {} had none",
-                withSignals,
+                "Prompt evidence: {}/{} job(s) had a description, {} had none",
+                withEvidence,
                 batch.size(),
-                batch.size() - withSignals);
+                batch.size() - withEvidence);
         return sb.toString();
     }
 
@@ -158,12 +195,17 @@ public class GeminiClient {
                                         "role",
                                         "user",
                                         "parts",
-                                        List.of(Map.of("text", userPrompt)))));
+                                        List.of(Map.of("text", userPrompt)))),
+                        // Classification is not a creative task. Without this the API defaults to
+                        // temperature 1.0 and the same batch can come back labelled differently on
+                        // consecutive calls. (Measured: it is not sufficient on its own — a
+                        // no-evidence prompt still flipped at temperature 0 — but leaving sampling
+                        // on adds variance for nothing.)
+                        "generationConfig",
+                        Map.of("temperature", 0));
 
         String url =
-                String.format(
-                        "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s",
-                        model, apiKey);
+                String.format("%s/v1beta/models/%s:generateContent?key=%s", baseUrl, model, apiKey);
 
         return webClient
                 .post()
