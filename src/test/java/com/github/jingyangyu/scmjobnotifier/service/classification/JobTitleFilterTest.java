@@ -50,8 +50,22 @@ class JobTitleFilterTest {
     void seniorityExcluded() {
         assertThat(filter.excludeReason(titled("Senior Supply Chain Analyst")))
                 .isEqualTo("seniority");
-        assertThat(filter.excludeReason(titled("Procurement Manager"))).isEqualTo("seniority");
         assertThat(filter.shouldExclude(titled("Director of Logistics"))).isTrue();
+    }
+
+    /**
+     * "manager" is deliberately NOT a seniority exclude — in SCM it spans both early-career (Apple
+     * "Global Supply Manager") and mid-level ("Purchasing Manager"), so the title alone can't
+     * decide and these defer to Stages 2-3. A senior manager is still caught by "senior".
+     */
+    @Test
+    void managerTitlesAreNotExcludedButSeniorManagersStillAre() {
+        assertThat(filter.excludeReason(titled("Global Supply Manager"))).isNull();
+        assertThat(filter.excludeReason(titled("Purchasing Manager"))).isNull();
+        assertThat(filter.excludeReason(titled("Senior Supply Chain Manager")))
+                .isEqualTo("seniority");
+        assertThat(filter.excludeReason(titled("Staff Procurement Manager")))
+                .isEqualTo("seniority");
     }
 
     @Test
@@ -162,6 +176,8 @@ class JobTitleFilterTest {
     void autoClassifyEntryFromRoleNoun() {
         assertThat(filter.autoClassifyLevel(titled("Supply Chain Coordinator")))
                 .isEqualTo("ENTRY_LEVEL");
+        assertThat(filter.autoClassifyLevel(titled("Assistant Manager, Distribution Center")))
+                .isNull();
         assertThat(filter.autoClassifyLevel(titled("Procurement Assistant")))
                 .isEqualTo("ENTRY_LEVEL");
     }

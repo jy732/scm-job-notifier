@@ -121,8 +121,10 @@ public class SmartRecruitersScraper implements JobScraper {
         }
 
         String id = strOrEmpty(posting.get("id"));
-        // The postings API usually omits relatedLinks, so most jobs had a blank URL (no email link).
-        // Fall back to the canonical public posting URL, which is jobs.smartrecruiters.com/{co}/{id}.
+        // The postings API usually omits relatedLinks, so most jobs had a blank URL (no email
+        // link).
+        // Fall back to the canonical public posting URL, which is
+        // jobs.smartrecruiters.com/{co}/{id}.
         String url = "";
         Object relatedLinks = posting.get("relatedLinks");
         if (relatedLinks instanceof Map<?, ?> linksMap) {

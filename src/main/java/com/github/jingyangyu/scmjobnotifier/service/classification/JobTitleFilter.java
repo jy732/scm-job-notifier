@@ -15,7 +15,8 @@ import org.springframework.stereotype.Component;
  *
  * <ul>
  *   <li>{@link #isFresh} — drop postings older than {@code job.retention.days}.
- *   <li>{@link #shouldExclude} — drop senior/staff/manager/director/lead titles (NOT interns).
+ *   <li>{@link #shouldExclude} — drop senior/staff/director/lead titles (NOT interns, NOT
+ *       managers).
  *   <li>{@link #isCaliforniaLocation} — keep only California roles (remote requires a CA token).
  *   <li>{@link #isScmRelevant} — require a supply-chain keyword in the title.
  * </ul>
@@ -51,9 +52,9 @@ public class JobTitleFilter {
 
     /**
      * Tier 1: Returns true if the title should be excluded — either a seniority marker
-     * (senior/staff/manager/director/lead etc.) or a non-SCM role (software/ML/data-science, which
-     * can slip through the SCM keyword gate via terms like "freight"/"planner"). Interns are
-     * intentionally NOT excluded — they are a target track.
+     * (senior/staff/director/lead etc.) or a non-SCM role (software/ML/data-science, which can slip
+     * through the SCM keyword gate via terms like "freight"/"planner"). Interns are intentionally
+     * NOT excluded — they are a target track.
      */
     public boolean shouldExclude(JobPosting job) {
         return excludeReason(job) != null;
@@ -111,7 +112,11 @@ public class JobTitleFilter {
             return "ENTRY_LEVEL";
         }
         String lower = title.toLowerCase(Locale.ROOT);
-        if (FilterKeywords.ENTRY_ROLE_NOUNS.stream().anyMatch(lower::contains)) {
+        // "manager" is no longer a Tier-1 exclude, so an "Assistant Manager, Distribution Center"
+        // now reaches here — it must NOT auto-classify entry off its "assistant" noun and skip
+        // Gemini. Defer every manager title to Stages 2-3, which read the experience requirement.
+        if (!lower.contains("manager")
+                && FilterKeywords.ENTRY_ROLE_NOUNS.stream().anyMatch(lower::contains)) {
             return "ENTRY_LEVEL";
         }
         return null;

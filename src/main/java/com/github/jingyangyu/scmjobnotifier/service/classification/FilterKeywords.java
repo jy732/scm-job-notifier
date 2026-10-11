@@ -24,6 +24,12 @@ final class FilterKeywords {
 
     // ── Tier 1: Hard exclude — above entry level, drop completely ──
     // Seniority only. NOTE: "intern"/"co-op" are intentionally absent — they are a target track.
+    // NOTE: "manager" is intentionally absent too. In SCM a "Manager" title is not reliably
+    // above entry level — Apple's "Global Supply Manager" and USC MSGSCM's own placement list
+    // ("Supply Chain Manager", "Global Supply Manager") are early-career targets, while
+    // "Purchasing Manager" is not. The word alone can't tell them apart, so these now fall
+    // through to Stage 3, where Gemini judges on the stated experience requirement (0-3 years).
+    // Genuinely senior manager titles are still caught here by "senior"/"staff"/"principal".
     static final List<String> EXCLUDE_KEYWORDS =
             List.of(
                     "senior",
@@ -31,7 +37,6 @@ final class FilterKeywords {
                     "sr ",
                     "staff",
                     "principal",
-                    "manager",
                     "director",
                     "vp ",
                     "vice president",

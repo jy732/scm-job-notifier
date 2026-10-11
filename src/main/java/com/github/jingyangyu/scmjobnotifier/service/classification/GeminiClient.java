@@ -92,12 +92,17 @@ public class GeminiClient {
                     + "rotational/leadership development program, or 0-3 years experience. "
                     + "UNSURE = clearly early-career SCM but you cannot confidently decide between "
                     + "internship and full-time entry-level. "
-                    + "OTHER = anything else: senior/manager/lead, 4+ years experience, hourly/manual "
+                    + "OTHER = anything else: senior/staff/principal/lead, 4+ years experience, "
+                    + "OR any role managing direct reports or a team, hourly/manual "
                     + "warehouse or production labor (material handler, warehouse associate, order "
                     + "selector/picker, forklift, stocker, clerk — we target only professional/"
                     + "analytical SCM roles like analyst, planner, buyer, coordinator, specialist), "
                     + "OR any role that is NOT supply chain / logistics / procurement / sourcing / "
                     + "planning / operations (e.g. software, finance, sales, marketing, HR). "
+                    + "A \"Manager\" in the title alone is NOT automatically OTHER — some "
+                    + "early-career SCM roles are titled Manager. Judge those on the stated "
+                    + "experience requirement (0-3 years, or none stated => ENTRY_LEVEL) UNLESS "
+                    + "the role supervises staff. "
                     + "Response format, one line per job: 1:ENTRY_LEVEL\\n2:INTERNSHIP\\n3:OTHER\\n"
                     + "4:UNSURE";
 

@@ -39,11 +39,13 @@ class SmartRecruitersScraperTest {
 
     @Test
     void buildsCanonicalUrlWhenRelatedLinksMissing() {
-        // The postings API usually omits relatedLinks — fall back to jobs.smartrecruiters.com/{co}/{id}.
+        // The postings API usually omits relatedLinks — fall back to
+        // jobs.smartrecruiters.com/{co}/{id}.
         String body =
                 "{\"totalFound\":1,\"content\":[{\"id\":\"744000\",\"name\":\"Buyer\","
                         + "\"location\":{\"city\":\"San Jose\",\"region\":\"CA\",\"country\":\"us\"}}]}";
-        SmartRecruitersScraper s = new SmartRecruitersScraper(WebClientStubs.json(u -> body), "PactGroup");
+        SmartRecruitersScraper s =
+                new SmartRecruitersScraper(WebClientStubs.json(u -> body), "PactGroup");
         JobPosting j = s.scrape("PactGroup").get(0);
         assertThat(j.getUrl()).isEqualTo("https://jobs.smartrecruiters.com/PactGroup/744000");
     }
