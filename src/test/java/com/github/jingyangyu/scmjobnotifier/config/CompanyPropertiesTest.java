@@ -49,6 +49,25 @@ class CompanyPropertiesTest {
     }
 
     @Test
+    void avature() {
+        AvatureProperties.AvatureCompany c = new AvatureProperties.AvatureCompany();
+        c.setName("sandisk");
+        c.setHost("avature.sandisk.com");
+        assertThat(c.getName()).isEqualTo("sandisk");
+        assertThat(c.getHost()).isEqualTo("avature.sandisk.com");
+        assertThat(c.searchUrl()).isEqualTo("https://avature.sandisk.com/Careers/SearchJobs");
+        assertThat(c.listUrl("13")).isEqualTo("https://avature.sandisk.com/13/_portalList");
+        assertThat(c.jobUrl("4032"))
+                .isEqualTo("https://avature.sandisk.com/Careers/JobDetail/job/4032");
+
+        AvatureProperties props = new AvatureProperties();
+        props.setCompanies(List.of(c));
+        assertThat(props.getCompanies()).hasSize(1);
+        assertThat(props.findByName("sandisk")).isPresent();
+        assertThat(props.findByName("nope")).isEmpty();
+    }
+
+    @Test
     void icimsCustomDomain() {
         IcimsProperties.IcimsCompany c = new IcimsProperties.IcimsCompany();
         c.setName("x");

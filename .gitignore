@@ -64,3 +64,6 @@ __pycache__/
 *.pyc
 replay-check.log
 isolated-test*.log
+
+# Playwright MCP session artifacts (page snapshots), not project output
+.playwright-mcp/

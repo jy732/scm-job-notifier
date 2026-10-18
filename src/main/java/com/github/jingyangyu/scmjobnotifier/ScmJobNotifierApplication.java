@@ -3,6 +3,7 @@ package com.github.jingyangyu.scmjobnotifier;
 import com.github.jingyangyu.scmjobnotifier.config.AdpMyJobsProperties;
 import com.github.jingyangyu.scmjobnotifier.config.AdpProperties;
 import com.github.jingyangyu.scmjobnotifier.config.AdzunaProperties;
+import com.github.jingyangyu.scmjobnotifier.config.AvatureProperties;
 import com.github.jingyangyu.scmjobnotifier.config.BrassRingProperties;
 import com.github.jingyangyu.scmjobnotifier.config.DayforceProperties;
 import com.github.jingyangyu.scmjobnotifier.config.IcimsProperties;
@@ -46,7 +47,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     DayforceProperties.class,
     PaycomProperties.class,
     AdpProperties.class,
-    AdpMyJobsProperties.class
+    AdpMyJobsProperties.class,
+    AvatureProperties.class
 })
 public class ScmJobNotifierApplication {
 

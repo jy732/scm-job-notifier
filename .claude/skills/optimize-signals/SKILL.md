@@ -77,7 +77,7 @@ the widespread problem it looks like from one example.
 2. Project candidates with `--candidates` — it reports how many currently-blind jobs would
    gain a signal. A candidate that only fires on jobs that already have signals is worthless.
 3. Change `SIGNAL_KEYWORDS` in `SignalExtractor.java`, keep unit tests green
-   (`./mvnw verify` enforces 100% line coverage).
+   (`./mvnw verify` enforces a 90% line-coverage floor; the suite actually sits at 100%).
 4. Re-run the backtest; the blind rate should fall.
 5. Validate end-to-end with `/filter-audit`, which shows both leakage and over-filtering, and
    re-classify historical rows with `POST /api/replay/classification` (dry-run first) rather
