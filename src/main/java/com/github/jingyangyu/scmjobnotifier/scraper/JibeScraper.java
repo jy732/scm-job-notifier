@@ -31,6 +31,11 @@ import tools.jackson.databind.ObjectMapper;
  * <ul>
  *   <li><b>amd</b> — Santa Clara semiconductor SCM (migrated off Kenexa BrassRing to iCIMS)
  *   <li><b>rivian</b> — Palo Alto / Irvine EV-manufacturing SCM
+ *   <li><b>reyesholdings</b> — food/beverage distribution SCM across every Reyes brand (Reyes
+ *       Beverage Group, Martin Brower, Reyes Coca-Cola). Reached via {@code
+ *       jobportal.reyesholdings.com}, which the per-brand iCIMS hostnames redirect to; its {@code
+ *       apply_url} points back at iCIMS, which is the only link that resolves (the {@code
+ *       /careers-home/jobs/{slug}} form 404s on this tenant).
  * </ul>
  */
 @Slf4j
@@ -53,7 +58,8 @@ public class JibeScraper implements JobScraper {
     private static final List<Portal> PORTALS =
             List.of(
                     new Portal("amd", "careers.amd.com"),
-                    new Portal("rivian", "careers.rivian.com"));
+                    new Portal("rivian", "careers.rivian.com"),
+                    new Portal("reyesholdings", "jobportal.reyesholdings.com"));
 
     private final WebClient webClient;
     private final ObjectMapper objectMapper;

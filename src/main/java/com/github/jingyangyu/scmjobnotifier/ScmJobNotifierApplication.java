@@ -13,6 +13,7 @@ import com.github.jingyangyu.scmjobnotifier.config.PaycomProperties;
 import com.github.jingyangyu.scmjobnotifier.config.PaylocityProperties;
 import com.github.jingyangyu.scmjobnotifier.config.PhenomProperties;
 import com.github.jingyangyu.scmjobnotifier.config.ProxyProperties;
+import com.github.jingyangyu.scmjobnotifier.config.RadancyProperties;
 import com.github.jingyangyu.scmjobnotifier.config.SuccessFactorsProperties;
 import com.github.jingyangyu.scmjobnotifier.config.TeslaProperties;
 import com.github.jingyangyu.scmjobnotifier.config.UltiProProperties;
@@ -48,7 +49,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     PaycomProperties.class,
     AdpProperties.class,
     AdpMyJobsProperties.class,
-    AvatureProperties.class
+    AvatureProperties.class,
+    RadancyProperties.class
 })
 public class ScmJobNotifierApplication {
 

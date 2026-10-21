@@ -12,6 +12,7 @@ import com.github.jingyangyu.scmjobnotifier.config.OracleCloudProperties;
 import com.github.jingyangyu.scmjobnotifier.config.PaycomProperties;
 import com.github.jingyangyu.scmjobnotifier.config.PaylocityProperties;
 import com.github.jingyangyu.scmjobnotifier.config.PhenomProperties;
+import com.github.jingyangyu.scmjobnotifier.config.RadancyProperties;
 import com.github.jingyangyu.scmjobnotifier.config.SuccessFactorsProperties;
 import com.github.jingyangyu.scmjobnotifier.config.UltiProProperties;
 import com.github.jingyangyu.scmjobnotifier.config.WorkdayProperties;
@@ -47,6 +48,7 @@ class AdzunaScraperTest {
                 new PaycomProperties(),
                 new AdpProperties(),
                 new AdpMyJobsProperties(),
+                new RadancyProperties(),
                 "",
                 "",
                 "",
@@ -115,6 +117,7 @@ class AdzunaScraperTest {
                 new PaycomProperties(),
                 new AdpProperties(),
                 new AdpMyJobsProperties(),
+                new RadancyProperties(),
                 gh,
                 "",
                 "",
@@ -142,6 +145,7 @@ class AdzunaScraperTest {
                         new PaycomProperties(),
                         new AdpProperties(),
                         new AdpMyJobsProperties(),
+                        new RadancyProperties(),
                         "",
                         "",
                         "",

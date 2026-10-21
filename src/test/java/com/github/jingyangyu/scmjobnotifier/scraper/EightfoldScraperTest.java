@@ -28,7 +28,7 @@ class EightfoldScraperTest {
     void platformAndCompanies() {
         EightfoldScraper s = scraper();
         assertThat(s.platform()).isEqualTo("eightfold");
-        assertThat(s.companies()).containsExactly("lamresearch", "qualcomm");
+        assertThat(s.companies()).containsExactly("lamresearch", "qualcomm", "lockheedmartin");
     }
 
     @Test

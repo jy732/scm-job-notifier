@@ -25,16 +25,29 @@ import tools.jackson.databind.ObjectMapper;
  * {@code "San Diego, California, United States of America"}, so the downstream California
  * pre-filter matches.
  *
+ * <p>Eightfold's own {@code location} filter is deliberately <b>not</b> used. It is a relevance
+ * boost, not a filter: on Lockheed, {@code location=California} narrowed the "supply chain" result
+ * set from 1,155 to 80 reachable rows but still returned Texas and Florida jobs — and dropped 59 of
+ * the 111 genuinely Californian ones. Scanning the unfiltered result set and letting the downstream
+ * California pre-filter decide is the only way to avoid that silent loss.
+ *
  * <ul>
  *   <li><b>lamresearch</b> — Fremont/Livermore semiconductor-equipment SCM
  *   <li><b>qualcomm</b> — San Diego semiconductor SCM (Capacity Planning, Sourcing, Supply Chain)
+ *   <li><b>lockheedmartin</b> — Palmdale/Sunnyvale/San Diego aerospace &amp; defense SCM (migrated
+ *       off Kenexa BrassRing, whose public search was login-gated)
  * </ul>
  */
 @Slf4j
 @Component
 public class EightfoldScraper implements JobScraper {
 
-    private static final int MAX_PAGES = 15;
+    // Eightfold's page size is fixed at 10 (every alias for a size param is ignored) and deep
+    // pagination dies at roughly 450 rows, so 50 is an upper bound the API reaches on its own
+    // rather than a budget. It must stay well above 15: on Lockheed the entry-level California SCM
+    // roles cluster in relevance ranks 150-400, and on Lam Research four of the seven queries
+    // return more than 150 rows each — the old cap silently truncated both.
+    private static final int MAX_PAGES = 50;
     private static final String USER_AGENT =
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                     + "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36";
@@ -59,7 +72,9 @@ public class EightfoldScraper implements JobScraper {
     private static final List<Portal> PORTALS =
             List.of(
                     new Portal("lamresearch", "careers.lamresearch.com", "lamresearch.com"),
-                    new Portal("qualcomm", "careers.qualcomm.com", "qualcomm.com"));
+                    new Portal("qualcomm", "careers.qualcomm.com", "qualcomm.com"),
+                    new Portal(
+                            "lockheedmartin", "lockheedmartin.eightfold.ai", "lockheedmartin.com"));
 
     private final WebClient webClient;
     private final ObjectMapper objectMapper;

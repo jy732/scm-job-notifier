@@ -23,7 +23,7 @@ class JibeScraperTest {
     void platformAndCompanies() {
         JibeScraper s = scraper(PAGE);
         assertThat(s.platform()).isEqualTo("jibe");
-        assertThat(s.companies()).containsExactly("amd", "rivian");
+        assertThat(s.companies()).containsExactly("amd", "rivian", "reyesholdings");
     }
 
     @Test

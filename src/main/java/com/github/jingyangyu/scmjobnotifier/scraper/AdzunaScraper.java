@@ -10,6 +10,7 @@ import com.github.jingyangyu.scmjobnotifier.config.OracleCloudProperties;
 import com.github.jingyangyu.scmjobnotifier.config.PaycomProperties;
 import com.github.jingyangyu.scmjobnotifier.config.PaylocityProperties;
 import com.github.jingyangyu.scmjobnotifier.config.PhenomProperties;
+import com.github.jingyangyu.scmjobnotifier.config.RadancyProperties;
 import com.github.jingyangyu.scmjobnotifier.config.SuccessFactorsProperties;
 import com.github.jingyangyu.scmjobnotifier.config.UltiProProperties;
 import com.github.jingyangyu.scmjobnotifier.config.WorkdayProperties;
@@ -128,6 +129,7 @@ public class AdzunaScraper implements JobScraper {
             PaycomProperties paycom,
             AdpProperties adp,
             AdpMyJobsProperties adpMyJobs,
+            RadancyProperties radancy,
             @Value("${job.companies.greenhouse:}") String greenhouse,
             @Value("${job.companies.lever:}") String lever,
             @Value("${job.companies.ashby:}") String ashby,
@@ -150,6 +152,7 @@ public class AdzunaScraper implements JobScraper {
                         paycom,
                         adp,
                         adpMyJobs,
+                        radancy,
                         greenhouse,
                         lever,
                         ashby,
@@ -176,6 +179,7 @@ public class AdzunaScraper implements JobScraper {
             PaycomProperties paycom,
             AdpProperties adp,
             AdpMyJobsProperties adpMyJobs,
+            RadancyProperties radancy,
             String greenhouse,
             String lever,
             String ashby,
@@ -195,6 +199,7 @@ public class AdzunaScraper implements JobScraper {
         paycom.getCompanies().forEach(c -> addToken(tokens, c.getName()));
         adp.getCompanies().forEach(c -> addToken(tokens, c.getName()));
         adpMyJobs.getCompanies().forEach(c -> addToken(tokens, c.getName()));
+        radancy.getCompanies().forEach(c -> addToken(tokens, c.getName()));
         for (String csv : List.of(greenhouse, lever, ashby, smartrecruiters, bamboohr, jazzhr)) {
             for (String slug : csv.split(",")) {
                 addToken(tokens, slug);
@@ -218,7 +223,12 @@ public class AdzunaScraper implements JobScraper {
                         "rossdressforless",
                         "qualcomm",
                         "amd",
-                        "rivian")) {
+                        "rivian",
+                        "lockheedmartin",
+                        // Reyes Holdings' postings surface under each operating brand, so the
+                        // holding-company slug alone would not dedup them out of Adzuna.
+                        "reyes",
+                        "martinbrower")) {
             addToken(tokens, s);
         }
         // display-name aliases for cryptic slugs

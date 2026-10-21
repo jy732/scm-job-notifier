@@ -68,6 +68,29 @@ class CompanyPropertiesTest {
     }
 
     @Test
+    void radancy() {
+        RadancyProperties.RadancyCompany c = new RadancyProperties.RadancyCompany();
+        c.setName("boeing");
+        c.setHost("jobs.boeing.com");
+        assertThat(c.getName()).isEqualTo("boeing");
+        assertThat(c.getHost()).isEqualTo("jobs.boeing.com");
+        assertThat(c.searchPageUrl()).isEqualTo("https://jobs.boeing.com/search-jobs");
+        assertThat(c.searchUrl(2, 100))
+                .startsWith("https://jobs.boeing.com/search-jobs/results?")
+                .contains("CurrentPage=2")
+                .contains("RecordsPerPage=100")
+                .contains("SearchResultsModuleName=Search+Results");
+        assertThat(c.jobUrl("/job/el-segundo/buyer/185/1"))
+                .isEqualTo("https://jobs.boeing.com/job/el-segundo/buyer/185/1");
+
+        RadancyProperties props = new RadancyProperties();
+        props.setCompanies(List.of(c));
+        assertThat(props.getCompanies()).hasSize(1);
+        assertThat(props.findByName("boeing")).isPresent();
+        assertThat(props.findByName("nope")).isEmpty();
+    }
+
+    @Test
     void icimsCustomDomain() {
         IcimsProperties.IcimsCompany c = new IcimsProperties.IcimsCompany();
         c.setName("x");
